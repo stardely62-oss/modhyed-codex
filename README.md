@@ -1,10 +1,10 @@
-> **Отдельная версия Codex.** Установка в отдельную папку игры: [CODEX.md](CODEX.md).
+> **NeoForge 1.21.1, Java 21 — отдельная версия Codex.** Установка в отдельную папку игры: [CODEX.md](CODEX.md).
 
 # Ender Obelisks
 
-![Карта обелисков](https://github.com/stardely62-oss/modhyed-codex/releases/download/dev/screenshot.png)
+![Карта обелисков](https://github.com/stardely62-oss/modhyed-codex/releases/download/neoforge-dev/screenshot.png)
 
-Fabric-мод для **Minecraft 1.20.1** от euf. Добавляет эндер-обелиски: ставишь их по миру и прыгаешь между ними через карту.
+NeoForge-мод для **Minecraft 1.21.1** от euf. Добавляет эндер-обелиски: ставишь их по миру и прыгаешь между ними через карту.
 
 ## Обелиск
 
@@ -64,23 +64,23 @@ Fabric-мод для **Minecraft 1.20.1** от euf. Добавляет энде�
 
 ## Установка (TLauncher)
 
-1. В TLauncher выбери версию **Fabric 1.20.1** и запусти её один раз до главного меню, потом закрой.
-2. Открой [последнюю сборку](https://github.com/stardely62-oss/modhyed-codex/releases/tag/dev) и скачай `ender-obelisks-updater.zip`.
+1. В TLauncher выбери версию **NeoForge 1.21.1** и запусти её один раз до главного меню, потом закрой.
+2. Открой [последнюю сборку](https://github.com/stardely62-oss/modhyed-codex/releases/tag/neoforge-dev) и скачай `ender-obelisks-updater.zip`.
 3. Распакуй архив и запусти **`update-ender-obelisks.bat`**.
 4. Скрипт сам:
    - найдёт папку `mods`;
-   - поставит подходящий под твой Fabric Loader Fabric API;
+   - проверит профиль NeoForge 1.21.1;
    - скачает мод, а старую версию и тестовый мод Modhyed удалит.
 
 Чтобы обновиться, запусти скрипт ещё раз. С ключом `-Stable` он поставит последний стабильный релиз вместо dev-сборки.
 
 ## Разработка
 
-- Код пишет агент (Claude Code + [Universal Modder](https://github.com/rehan-remade/universal-modder)). Сборка и проверка идут только в GitHub Actions ([workflow](.github/workflows/build.yml)):
-  1. `./gradlew build`
-  2. `./gradlew runGametest`: [GameTest-ы](src/gametest/java/euf/enderobelisks/test/ObeliskGameTests.java) на headless-сервере проверяют размещение, реестр, разрушение, уровни, телепорт, перезарядку и права.
+- Версия Codex разрабатывается отдельно от исходного проекта Claude. Сборка и проверка идут только в GitHub Actions ([workflow](.github/workflows/build.yml)):
+  1. `./gradlew build` (Java 21)
+  2. `./gradlew runGameTestServer`: [GameTest-ы](src/gametest/java/euf/enderobelisks/test/ObeliskGameTests.java) на headless-сервере проверяют размещение, реестр, разрушение, уровни, телепорт, перезарядку и права.
   3. `scripts/ci-harness.sh`: настоящий клиент под Xvfb на сгенерированном мире ([сценарий](src/gametest/java/euf/enderobelisks/test/HarnessClient.java)). Ставит обелиск кликом, открывает меню, прыгает, проверяет дальность, перезарядку и права, улучшает и снимает скриншоты.
-  4. При зелёном `main` обновляется релиз [`dev`](https://github.com/stardely62-oss/modhyed-codex/releases/tag/dev). Тег `v*` выпускает стабильный релиз.
+  4. При зелёном `main` обновляется релиз [`dev`](https://github.com/stardely62-oss/modhyed-codex/releases/tag/neoforge-dev). Тег `v*` выпускает стабильный релиз.
 - Модели генерирует [`tools/gen_models.py`](tools/gen_models.py), текстуры [`tools/gen_textures.py`](tools/gen_textures.py).
 
 ## Лицензия
