@@ -12,7 +12,8 @@ import euf.enderobelisks.block.ObeliskBlockEntity;
 import euf.enderobelisks.block.RuinedObeliskBlock;
 import java.util.List;
 import java.util.UUID;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -39,10 +40,13 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
-public class ObeliskGameTests implements FabricGameTest {
+@GameTestHolder("ender_obelisks")
+@PrefixGameTestTemplate(false)
+public class ObeliskGameTests {
+ private static final String EMPTY_STRUCTURE = "ender_obelisks:empty";
 	/** Sets both halves the way placing does (upper first, so the lower half never sees air above it). */
 	static void setObelisk(ServerLevel world, BlockPos lower, Direction facing) {
-		BlockState state = EnderObelisks.OBELISK.get().getDefaultState().with(ObeliskBlock.FACING, facing);
+		BlockState state = EnderObelisks.OBELISK.get().defaultBlockState().setValue(ObeliskBlock.FACING, facing);
 		world.setBlockAndUpdate(lower.above(), state.setValue(ObeliskBlock.HALF, DoubleBlockHalf.UPPER));
 		world.setBlockAndUpdate(lower, state.setValue(ObeliskBlock.HALF, DoubleBlockHalf.LOWER));
 	}
@@ -319,14 +323,14 @@ public class ObeliskGameTests implements FabricGameTest {
 	public void aTimeShardRestoresARuin(GameTestHelper ctx) {
 		ServerLevel world = ctx.getLevel();
 		BlockPos ruin = ctx.absolutePos(new BlockPos(3, 2, 3));
-		world.setBlockAndUpdate(ruin, EnderObelisks.RUINED_OBELISK.get().getDefaultState());
+		world.setBlockAndUpdate(ruin, EnderObelisks.RUINED_OBELISK.get().defaultBlockState());
 		ServerPlayer player = (ServerPlayer) ctx.makeMockServerPlayerInLevel();
 		player.moveTo(ruin.getX() + 0.5, ruin.getY(), ruin.getZ() - 1.5, 0, 0);
 		ItemStack shard = new ItemStack(EnderObelisks.TIME_SHARD.get());
 		check(RuinedObeliskBlock.restore(world, ruin, player, shard), "the restoration failed");
 		check(world.getBlockState(ruin).is(EnderObelisks.OBELISK.get()) && world.getBlockState(ruin.above()).is(EnderObelisks.OBELISK.get()),
 				"the ruin should now be a two-block obelisk");
-		check(ObeliskService.at(world, ruin).map(o -> o.owner.equals(player.getUuid())).orElse(false),
+		check(ObeliskService.at(world, ruin).map(o -> o.owner.equals(player.getUUID())).orElse(false),
 				"the restored obelisk should belong to the player");
 		world.removePlayerImmediately(player, Entity.RemovalReason.DISCARDED);
 		world.destroyBlock(ruin, false);

@@ -21,11 +21,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import net.fabricmc.api.ClientModInitializer;
+
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import euf.enderobelisks.platform.Network.Client;
+import euf.enderobelisks.platform.Network;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
  * teleports, checks range, cooldown, ownership and upgrades, and photographs the map. Writes harness-result.txt;
  * scripts/ci-harness.sh fails the build unless it says PASS and every screenshot exists.
  */
-public class HarnessClient implements ClientModInitializer {
+public class HarnessClient {
 	private static final Logger LOGGER = LoggerFactory.getLogger("ender_obelisks-harness");
 
 	private record Step(int waitAfter, boolean needsTerrain, Consumer<Minecraft> action) {}
@@ -76,7 +76,6 @@ public class HarnessClient implements ClientModInitializer {
 	private volatile BlockPos secret;
 	private volatile BlockPos ruin;
 
-	@Override
 	public void onInitializeClient() {
 		if (!Boolean.getBoolean("ender_obelisks.harness")) {
 			return;
@@ -560,23 +559,23 @@ public class HarnessClient implements ClientModInitializer {
 	}
 
 	private static void sendRename(Minecraft client, BlockPos source, String name) {
-		FriendlyByteBuf buf = PacketByteBufs.create();
+		FriendlyByteBuf buf = Network.create();
 		buf.writeBlockPos(source);
 		buf.writeUtf(name);
-		ClientPlayNetworking.send(ObeliskPackets.RENAME, buf);
+		Client.send(ObeliskPackets.RENAME, buf);
 	}
 
 	private static void sendColor(Minecraft client, BlockPos source, int color) {
-		FriendlyByteBuf buf = PacketByteBufs.create();
+		FriendlyByteBuf buf = Network.create();
 		buf.writeBlockPos(source);
 		buf.writeVarInt(color);
-		ClientPlayNetworking.send(ObeliskPackets.SET_COLOR, buf);
+		Client.send(ObeliskPackets.SET_COLOR, buf);
 	}
 
 	private static void sendSimple(Minecraft client, ResourceLocation channel, BlockPos source) {
-		FriendlyByteBuf buf = PacketByteBufs.create();
+		FriendlyByteBuf buf = Network.create();
 		buf.writeBlockPos(source);
-		ClientPlayNetworking.send(channel, buf);
+		Client.send(channel, buf);
 	}
 
 	private void screenshot(Minecraft client, String name) {
