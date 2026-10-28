@@ -1,50 +1,50 @@
 {
-	"display": {
-		"icon": {
-			"item": "ender_obelisks:obelisk"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.root.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.root.description"
-		},
-		"frame": "task",
-		"show_toast": false,
-		"announce_to_chat": false,
-		"hidden": false,
-		"background": "minecraft:textures/block/polished_deepslate.png"
-	},
-	"criteria": {
-		"has_shard": {
-			"trigger": "minecraft:inventory_changed",
-			"conditions": {
-				"items": [
-					{
-						"items": [
-							"ender_obelisks:time_shard"
-						]
-					}
-				]
-			}
-		},
-		"has_obelisk": {
-			"trigger": "minecraft:inventory_changed",
-			"conditions": {
-				"items": [
-					{
-						"items": [
-							"ender_obelisks:obelisk"
-						]
-					}
-				]
-			}
-		}
-	},
-	"requirements": [
-		[
-			"has_shard",
-			"has_obelisk"
-		]
-	]
+  "display": {
+    "icon": {
+      "id": "ender_obelisks:obelisk"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.root.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.root.description"
+    },
+    "frame": "task",
+    "show_toast": false,
+    "announce_to_chat": false,
+    "hidden": false,
+    "background": "minecraft:textures/block/polished_deepslate.png"
+  },
+  "criteria": {
+    "has_shard": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "ender_obelisks:time_shard"
+            ]
+          }
+        ]
+      }
+    },
+    "has_obelisk": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "ender_obelisks:obelisk"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_shard",
+      "has_obelisk"
+    ]
+  ]
 }

@@ -1,26 +1,26 @@
 {
-	"display": {
-		"icon": {
-			"item": "minecraft:nether_star"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.max_tier.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.max_tier.description"
-		},
-		"frame": "goal",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"maxed": {
-			"trigger": "ender_obelisks:upgraded",
-			"conditions": {
-				"min_tier": 4
-			}
-		}
-	},
-	"parent": "ender_obelisks:place_obelisk"
+  "display": {
+    "icon": {
+      "id": "minecraft:nether_star"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.max_tier.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.max_tier.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "maxed": {
+      "trigger": "ender_obelisks:upgraded",
+      "conditions": {
+        "min_tier": 4
+      }
+    }
+  },
+  "parent": "ender_obelisks:place_obelisk"
 }

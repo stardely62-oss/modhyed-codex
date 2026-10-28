@@ -1,23 +1,23 @@
 {
-	"parent": "ender_obelisks:root",
-	"display": {
-		"icon": {
-			"item": "ender_obelisks:ruined_obelisk"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.restore_ruin.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.restore_ruin.description"
-		},
-		"frame": "task",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"restored": {
-			"trigger": "ender_obelisks:restored"
-		}
-	}
+  "parent": "ender_obelisks:root",
+  "display": {
+    "icon": {
+      "id": "ender_obelisks:ruined_obelisk"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.restore_ruin.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.restore_ruin.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "restored": {
+      "trigger": "ender_obelisks:restored"
+    }
+  }
 }

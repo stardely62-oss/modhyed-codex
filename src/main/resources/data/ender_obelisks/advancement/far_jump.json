@@ -1,26 +1,26 @@
 {
-	"display": {
-		"icon": {
-			"item": "minecraft:ender_eye"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.far_jump.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.far_jump.description"
-		},
-		"frame": "challenge",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"far": {
-			"trigger": "ender_obelisks:teleported",
-			"conditions": {
-				"min_distance": 3000
-			}
-		}
-	},
-	"parent": "ender_obelisks:first_jump"
+  "display": {
+    "icon": {
+      "id": "minecraft:ender_eye"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.far_jump.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.far_jump.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "far": {
+      "trigger": "ender_obelisks:teleported",
+      "conditions": {
+        "min_distance": 3000
+      }
+    }
+  },
+  "parent": "ender_obelisks:first_jump"
 }

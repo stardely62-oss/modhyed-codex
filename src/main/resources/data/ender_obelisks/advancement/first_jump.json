@@ -1,23 +1,23 @@
 {
-	"display": {
-		"icon": {
-			"item": "minecraft:ender_pearl"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.first_jump.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.first_jump.description"
-		},
-		"frame": "task",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"jumped": {
-			"trigger": "ender_obelisks:teleported"
-		}
-	},
-	"parent": "ender_obelisks:place_obelisk"
+  "display": {
+    "icon": {
+      "id": "minecraft:ender_pearl"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.first_jump.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.first_jump.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "jumped": {
+      "trigger": "ender_obelisks:teleported"
+    }
+  },
+  "parent": "ender_obelisks:place_obelisk"
 }

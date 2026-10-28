@@ -1,31 +1,31 @@
 {
-	"display": {
-		"icon": {
-			"item": "ender_obelisks:obelisk"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.place_obelisk.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.place_obelisk.description"
-		},
-		"frame": "task",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"placed": {
-			"trigger": "minecraft:placed_block",
-			"conditions": {
-				"location": [
-					{
-						"condition": "minecraft:block_state_property",
-						"block": "ender_obelisks:obelisk"
-					}
-				]
-			}
-		}
-	},
-	"parent": "ender_obelisks:root"
+  "display": {
+    "icon": {
+      "id": "ender_obelisks:obelisk"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.place_obelisk.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.place_obelisk.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "placed": {
+      "trigger": "minecraft:placed_block",
+      "conditions": {
+        "location": [
+          {
+            "condition": "minecraft:block_state_property",
+            "block": "ender_obelisks:obelisk"
+          }
+        ]
+      }
+    }
+  },
+  "parent": "ender_obelisks:root"
 }

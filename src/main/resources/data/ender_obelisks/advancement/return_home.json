@@ -1,23 +1,23 @@
 {
-	"parent": "ender_obelisks:first_jump",
-	"display": {
-		"icon": {
-			"item": "ender_obelisks:return_shard"
-		},
-		"title": {
-			"translate": "advancements.ender_obelisks.return_home.title"
-		},
-		"description": {
-			"translate": "advancements.ender_obelisks.return_home.description"
-		},
-		"frame": "task",
-		"show_toast": true,
-		"announce_to_chat": true,
-		"hidden": false
-	},
-	"criteria": {
-		"returned": {
-			"trigger": "ender_obelisks:returned"
-		}
-	}
+  "parent": "ender_obelisks:first_jump",
+  "display": {
+    "icon": {
+      "id": "ender_obelisks:return_shard"
+    },
+    "title": {
+      "translate": "advancements.ender_obelisks.return_home.title"
+    },
+    "description": {
+      "translate": "advancements.ender_obelisks.return_home.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "returned": {
+      "trigger": "ender_obelisks:returned"
+    }
+  }
 }
