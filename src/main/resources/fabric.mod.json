@@ -8,8 +8,8 @@
 		"euf"
 	],
 	"contact": {
-		"sources": "https://github.com/stardely62-oss/modhyed",
-		"issues": "https://github.com/stardely62-oss/modhyed/issues"
+		"sources": "https://github.com/stardely62-oss/modhyed-codex",
+		"issues": "https://github.com/stardely62-oss/modhyed-codex/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/ender_obelisks/icon.png",
