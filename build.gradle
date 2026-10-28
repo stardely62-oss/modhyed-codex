@@ -57,7 +57,7 @@ neoForge {
             sourceSet = sourceSets.gametest
             gameDirectory = file('build/gametest')
             systemProperty 'neoforge.enabledGameTestNamespaces', 'ender_obelisks'
-            programArguments.addAll '--report', file('build/gametest/junit.xml').absolutePath
+            systemProperty 'ender_obelisks.gametest', 'true'
         }
         genworld {
             server()
