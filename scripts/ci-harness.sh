@@ -26,6 +26,11 @@ timeout 300 ./gradlew runGenworld --stacktrace
 test -f "$SERVER/world/level.dat" || { echo 'genworld did not create a world'; exit 1; }
 cp -r "$SERVER/world" "$CLIENT/saves/harness"
 
+# Test the optional map integration with the same NeoForge build as the installer.
+mkdir -p "$CLIENT/mods"
+curl -sSfL -o "$CLIENT/mods/journeymap-neoforge-1.21.1-6.0.9.jar" 'https://cdn.modrinth.com/data/lfHFW1mp/versions/CtFE7hwT/journeymap-neoforge-1.21.1-6.0.9.jar'
+echo '8900ee4cdb7d1ffb6559decdeec84ad479d04b2e7b01a60be9f6e328809af2bfd7a80077b7da0e49bc96261fe8fe274ba33c62f6c9f65302c783ed823c4ff746  '"$CLIENT/mods/journeymap-neoforge-1.21.1-6.0.9.jar" | sha512sum -c -
+
 # Skip first-launch screens and keep running without window focus
 cat > "$CLIENT/options.txt" <<'EOF'
 onboardAccessibility:false

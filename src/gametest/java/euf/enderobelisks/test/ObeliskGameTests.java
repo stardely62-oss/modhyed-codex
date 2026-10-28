@@ -43,7 +43,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 @GameTestHolder("ender_obelisks")
 @PrefixGameTestTemplate(false)
 public class ObeliskGameTests {
- private static final String EMPTY_STRUCTURE = "ender_obelisks:empty";
+ private static final String EMPTY_STRUCTURE = "empty";
 	/** Sets both halves the way placing does (upper first, so the lower half never sees air above it). */
 	static void setObelisk(ServerLevel world, BlockPos lower, Direction facing) {
 		BlockState state = EnderObelisks.OBELISK.get().defaultBlockState().setValue(ObeliskBlock.FACING, facing);
