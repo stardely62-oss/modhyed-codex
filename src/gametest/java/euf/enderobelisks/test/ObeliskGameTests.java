@@ -79,7 +79,7 @@ public class ObeliskGameTests {
 			check(ObeliskTiers.range(tier) == expected[tier], "tier " + tier + " range " + ObeliskTiers.range(tier));
 		}
 		check(ObeliskTiers.range(99) == 5000 && ObeliskTiers.range(-1) == 500, "range must clamp");
-		check(ObeliskTiers.upgradeCost(3).get(0).isOf(Items.NETHER_STAR), "the last upgrade costs a nether star");
+		check(ObeliskTiers.upgradeCost(3).get(0).is(Items.NETHER_STAR), "the last upgrade costs a nether star");
 		check(ObeliskTiers.upgradeCost(ObeliskTiers.MAX_TIER).isEmpty(), "no upgrade past the max tier");
 		check(ObeliskService.clampName("  " + "x".repeat(50) + " ").length() == ObeliskService.MAX_NAME_LENGTH, "names are clamped");
 		ctx.succeed();
@@ -89,12 +89,12 @@ public class ObeliskGameTests {
 	public void recipesUseTheTimeShard(GameTestHelper ctx) {
 		ServerLevel world = ctx.getLevel();
 		Recipe<?> shard = world.getRecipeManager().byKey(EnderObelisks.id("time_shard"))
-				.orElseThrow(() -> new GameTestException("no time shard recipe"));
+				.orElseThrow(() -> new GameTestAssertException("no time shard recipe")).value();
 		check(shard.getResultItem(world.registryAccess()).is(EnderObelisks.TIME_SHARD.get()), "the time shard recipe makes a time shard");
 		check(shard.getIngredients().stream().anyMatch(i -> i.test(new ItemStack(Items.REDSTONE)))
 				&& shard.getIngredients().stream().anyMatch(i -> i.test(new ItemStack(Items.EMERALD))), "time shard = redstone + emeralds");
 		Recipe<?> obelisk = world.getRecipeManager().byKey(EnderObelisks.id("obelisk"))
-				.orElseThrow(() -> new GameTestException("no obelisk recipe"));
+				.orElseThrow(() -> new GameTestAssertException("no obelisk recipe")).value();
 		for (ItemStack needed : List.of(new ItemStack(EnderObelisks.TIME_SHARD.get()), new ItemStack(Items.DIAMOND),
 				new ItemStack(Items.OBSIDIAN), new ItemStack(Items.ENDER_PEARL))) {
 			check(obelisk.getIngredients().stream().anyMatch(i -> i.test(needed)), "the obelisk recipe needs " + needed.getItem());

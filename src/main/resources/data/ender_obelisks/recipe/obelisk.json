@@ -1,29 +1,29 @@
 {
-	"type": "minecraft:crafting_shaped",
-	"category": "misc",
-	"pattern": [
-		"STS",
-		"PDP",
-		"OOO"
-	],
-	"key": {
-		"P": {
-			"item": "minecraft:ender_pearl"
-		},
-		"D": {
-			"item": "minecraft:diamond"
-		},
-		"O": {
-			"item": "minecraft:obsidian"
-		},
-		"S": {
-			"item": "minecraft:polished_deepslate"
-		},
-		"T": {
-			"item": "ender_obelisks:time_shard"
-		}
-	},
-	"result": {
-		"item": "ender_obelisks:obelisk"
-	}
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "STS",
+    "PDP",
+    "OOO"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:ender_pearl"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "S": {
+      "item": "minecraft:polished_deepslate"
+    },
+    "T": {
+      "item": "ender_obelisks:time_shard"
+    }
+  },
+  "result": {
+    "id": "ender_obelisks:obelisk"
+  }
 }

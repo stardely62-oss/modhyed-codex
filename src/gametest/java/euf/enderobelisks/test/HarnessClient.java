@@ -26,7 +26,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import euf.enderobelisks.platform.Network.Client;
 import euf.enderobelisks.platform.Network;
-import net.minecraft.advancements.Advancement;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -103,7 +103,7 @@ public class HarnessClient {
 		step(20, false, c -> {
 			check("obelisk_item_in_hotbar", select(c));
 			for (Item item : List.of(EnderObelisks.OBELISK_ITEM.get(), EnderObelisks.RUINED_OBELISK_ITEM.get(), EnderObelisks.TIME_SHARD.get(), EnderObelisks.RETURN_SHARD.get())) {
-				List<Component> tooltip = new ItemStack(item).getTooltipLines(c.player, TooltipFlag.NORMAL);
+				List<Component> tooltip = new ItemStack(item).getTooltipLines(Item.TooltipContext.of(c.level), c.player, TooltipFlag.NORMAL);
 				String key = "ender_obelisks.lore." + BuiltInRegistries.ITEM.getKey(item).getPath() + ".1";
 				check("lore_" + BuiltInRegistries.ITEM.getKey(item).getPath(), tooltip.size() > 1
 						&& tooltip.get(1).getContents() instanceof TranslatableContents t && t.getKey().equals(key));
@@ -377,8 +377,8 @@ public class HarnessClient {
 			c.options.keyShift.setDown(false);
 			UUID homeId = onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> o.id).orElse(null));
 			ItemStack held = c.player.getMainHandItem();
-			CompoundTag bound = held.getTagElement("Obelisk");
-			LOGGER.info("shard after binding: {} nbt {}", held, held.getTag());
+			CompoundTag bound = held.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getCompound("Obelisk");
+			LOGGER.info("shard after binding: {} nbt {}", held, held.getComponents());
 			check("shard_bound", bound != null && homeId != null && bound.hasUUID("id") && bound.getUUID("id").equals(homeId));
 		});
 		step(20, true, c -> tp(c, Vec3.atBottomCenterOf(home).add(60.5, 0, 0.5), Vec3.atBottomCenterOf(home).add(60.5, 30, 0.5)));
@@ -400,7 +400,7 @@ public class HarnessClient {
 		});
 		step(40, false, this::finish);
 
-		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+		net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) -> tick(Minecraft.getInstance()));
 	}
 
 	// ---- server-side helpers (run on the integrated server thread) ----
@@ -460,7 +460,7 @@ public class HarnessClient {
 			return;
 		}
 		Step next = steps.peek();
-		if (next.needsTerrain() && !client.levelRenderer.hasRenderedAllChunks() && ticks < nextStepTick + 400) {
+		if (next.needsTerrain() && !client.levelRenderer.hasRenderedAllSections() && ticks < nextStepTick + 400) {
 			return;
 		}
 		steps.poll();
@@ -538,7 +538,7 @@ public class HarnessClient {
 	private static boolean advancementDone(Minecraft client, String name) {
 		UUID me = client.player.getUUID();
 		return onServer(client, s -> {
-			Advancement advancement = s.getAdvancements().getAdvancement(EnderObelisks.id(name));
+			AdvancementHolder advancement = s.getAdvancements().get(EnderObelisks.id(name));
 			ServerPlayer player = s.getPlayerList().getPlayer(me);
 			return advancement != null && player != null && player.getAdvancements().getOrStartProgress(advancement).isDone();
 		});

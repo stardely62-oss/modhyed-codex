@@ -1,20 +1,20 @@
 {
-	"type": "minecraft:crafting_shaped",
-	"category": "misc",
-	"pattern": [
-		" R ",
-		"ERE",
-		" R "
-	],
-	"key": {
-		"R": {
-			"item": "minecraft:redstone"
-		},
-		"E": {
-			"item": "minecraft:emerald"
-		}
-	},
-	"result": {
-		"item": "ender_obelisks:time_shard"
-	}
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " R ",
+    "ERE",
+    " R "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    }
+  },
+  "result": {
+    "id": "ender_obelisks:time_shard"
+  }
 }
