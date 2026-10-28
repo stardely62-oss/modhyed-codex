@@ -32,9 +32,9 @@ import org.joml.Vector3f;
  * name plate.
  */
 public class ObeliskRenderer implements BlockEntityRenderer<ObeliskBlockEntity> {
-	public static final ResourceLocation EYE_MODEL = EnderObelisks.id("block/obelisk_eye");
-	public static final ResourceLocation SHARD_MODEL = EnderObelisks.id("block/obelisk_shard");
-	public static final ResourceLocation SHARD_GLOW_MODEL = EnderObelisks.id("block/obelisk_shard_glow");
+	public static final net.minecraft.client.resources.model.ModelResourceLocation EYE_MODEL = net.minecraft.client.resources.model.ModelResourceLocation.standalone(EnderObelisks.id("block/obelisk_eye"));
+	public static final net.minecraft.client.resources.model.ModelResourceLocation SHARD_MODEL = net.minecraft.client.resources.model.ModelResourceLocation.standalone(EnderObelisks.id("block/obelisk_shard"));
+	public static final net.minecraft.client.resources.model.ModelResourceLocation SHARD_GLOW_MODEL = net.minecraft.client.resources.model.ModelResourceLocation.standalone(EnderObelisks.id("block/obelisk_shard_glow"));
 	private static final double ORBIT_RADIUS = 0.62;
 	private static final float SHARD_SCALE = 0.85f;
 	private static final double EYE_Y = 26 / 16.0;
@@ -132,7 +132,7 @@ public class ObeliskRenderer implements BlockEntityRenderer<ObeliskBlockEntity> 
 	}
 
 	@Override
-	public boolean rendersOutsideBoundingBox(ObeliskBlockEntity entity) {
+	public boolean shouldRenderOffScreen(ObeliskBlockEntity entity) {
 		return true;
 	}
 }

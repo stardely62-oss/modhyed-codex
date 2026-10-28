@@ -107,7 +107,7 @@ public class FriendsScreen extends Screen {
 
 	@Override
 	public void tick() {
-		nameField.tick();
+		
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package euf.enderobelisks.block;
 
+import euf.enderobelisks.EnderObelisks;
 import euf.enderobelisks.ObeliskConfig;
 import euf.enderobelisks.ObeliskInfo;
 import euf.enderobelisks.ObeliskService;
@@ -96,7 +97,7 @@ public class ObeliskBlock extends Block implements EntityBlock {
 		world.setBlock(pos.above(), state.setValue(HALF, DoubleBlockHalf.UPPER), Block.UPDATE_ALL);
 		if (world instanceof ServerLevel serverWorld) {
 			world.playSound(null, pos, ObeliskSounds.PLACE.get(), SoundSource.BLOCKS, 1.0f, 1.0f);
-			String name = stack.hasCustomHoverName() ? stack.getHoverName().getString() : null;
+			String name = stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME) ? stack.getHoverName().getString() : null;
 			ObeliskService.register(serverWorld, pos, placer instanceof Player player ? player : null, name);
 		}
 	}

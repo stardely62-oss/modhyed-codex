@@ -71,7 +71,7 @@ public class ObeliskInfo {
 
 	public static ObeliskInfo fromNbt(CompoundTag nbt) {
 		ObeliskInfo info = new ObeliskInfo(nbt.getUUID("id"),
-				ResourceKey.create(Registries.DIMENSION, new ResourceLocation(nbt.getString("dim"))),
+				ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(nbt.getString("dim"))),
 				BlockPos.of(nbt.getLong("pos")), nbt.getUUID("owner"), nbt.getString("ownerName"),
 				nbt.getString("name"), nbt.getBoolean("public"), nbt.getInt("tier"));
 		info.color = nbt.getInt("color");

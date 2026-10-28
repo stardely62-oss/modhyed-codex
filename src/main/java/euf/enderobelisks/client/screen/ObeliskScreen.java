@@ -187,7 +187,7 @@ public class ObeliskScreen extends Screen {
 
 	@Override
 	public void tick() {
-		nameField.tick();
+		
 		refreshButtons();
 	}
 
@@ -899,7 +899,7 @@ public class ObeliskScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double amount) {
 		if (inMap(mouseX, mouseY)) {
 			// Zoom around the cursor: the block under it stays under it
 			double wx = centerX + (mouseX - mapCenterX()) / scale;
@@ -913,7 +913,7 @@ public class ObeliskScreen extends Screen {
 			listScroll -= (int) Math.signum(amount);
 			return true;
 		}
-		return super.mouseScrolled(mouseX, mouseY, amount);
+		return super.mouseScrolled(mouseX, mouseY, horizontalAmount, amount);
 	}
 
 	/** Zoom so the whole range circle fits; used by the harness for its screenshots. */

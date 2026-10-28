@@ -46,7 +46,7 @@ public record MenuData(BlockPos sourcePos, UUID sourceId, ResourceLocation dimen
 		buf.writeVarInt(ObeliskTiers.range(source.tier + 1));
 		List<ItemStack> cost = ObeliskTiers.upgradeCost(source.tier);
 		buf.writeVarInt(cost.size());
-		cost.forEach(buf::writeItem);
+		cost.forEach(stack -> { buf.writeResourceLocation(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())); buf.writeVarInt(stack.getCount()); });
 		buf.writeVarInt(cooldownTicks);
 		buf.writeVarInt(config.cooldownSeconds * 20);
 		buf.writeBoolean(config.crossDimension);
@@ -86,7 +86,7 @@ public record MenuData(BlockPos sourcePos, UUID sourceId, ResourceLocation dimen
 		int costCount = buf.readVarInt();
 		List<ItemStack> cost = new ArrayList<>(costCount);
 		for (int i = 0; i < costCount; i++) {
-			cost.add(buf.readItem());
+			cost.add(new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(buf.readResourceLocation()), buf.readVarInt()));
 		}
 		int cooldown = buf.readVarInt();
 		int cooldownTotal = buf.readVarInt();
