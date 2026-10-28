@@ -9,7 +9,7 @@ description="Independent NeoForge 1.21.1 edition."
 [[dependencies.ender_obelisks]]
 modId="neoforge"
 type="required"
-versionRange="[21.1.265,21.2)"
+versionRange="[21.1.264,21.2)"
 ordering="NONE"
 side="BOTH"
 [[dependencies.ender_obelisks]]
