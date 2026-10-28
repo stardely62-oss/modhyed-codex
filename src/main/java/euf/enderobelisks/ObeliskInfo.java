@@ -3,19 +3,19 @@ package euf.enderobelisks;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 
 /** One obelisk as the server registry knows it, loaded or not. {@code pos} is the lower half. */
 public class ObeliskInfo {
 	public final UUID id;
-	public final RegistryKey<World> dimension;
+	public final ResourceKey<Level> dimension;
 	public final BlockPos pos;
 	public final UUID owner;
 	public String ownerName;
@@ -27,11 +27,11 @@ public class ObeliskInfo {
 	/** Marker colour on the maps, an index into {@link ObeliskColors}. */
 	public int color;
 
-	public ObeliskInfo(UUID id, RegistryKey<World> dimension, BlockPos pos, UUID owner, String ownerName, String name,
+	public ObeliskInfo(UUID id, ResourceKey<Level> dimension, BlockPos pos, UUID owner, String ownerName, String name,
 			boolean isPublic, int tier) {
 		this.id = id;
 		this.dimension = dimension;
-		this.pos = pos.toImmutable();
+		this.pos = pos.immutable();
 		this.owner = owner;
 		this.ownerName = ownerName;
 		this.name = name;
@@ -44,24 +44,24 @@ public class ObeliskInfo {
 	}
 
 	public double distanceTo(ObeliskInfo other) {
-		return Math.sqrt(pos.getSquaredDistance(other.pos));
+		return Math.sqrt(pos.distSqr(other.pos));
 	}
 
-	public NbtCompound toNbt() {
-		NbtCompound nbt = new NbtCompound();
-		nbt.putUuid("id", id);
-		nbt.putString("dim", dimension.getValue().toString());
+	public CompoundTag toNbt() {
+		CompoundTag nbt = new CompoundTag();
+		nbt.putUUID("id", id);
+		nbt.putString("dim", dimension.location().toString());
 		nbt.putLong("pos", pos.asLong());
-		nbt.putUuid("owner", owner);
+		nbt.putUUID("owner", owner);
 		nbt.putString("ownerName", ownerName);
 		nbt.putString("name", name);
 		nbt.putBoolean("public", isPublic);
 		nbt.putInt("tier", tier);
 		nbt.putInt("color", color);
-		NbtList list = new NbtList();
+		ListTag list = new ListTag();
 		friends.forEach((uuid, friendName) -> {
-			NbtCompound friend = new NbtCompound();
-			friend.putUuid("id", uuid);
+			CompoundTag friend = new CompoundTag();
+			friend.putUUID("id", uuid);
 			friend.putString("name", friendName);
 			list.add(friend);
 		});
@@ -69,15 +69,15 @@ public class ObeliskInfo {
 		return nbt;
 	}
 
-	public static ObeliskInfo fromNbt(NbtCompound nbt) {
-		ObeliskInfo info = new ObeliskInfo(nbt.getUuid("id"),
-				RegistryKey.of(RegistryKeys.WORLD, new Identifier(nbt.getString("dim"))),
-				BlockPos.fromLong(nbt.getLong("pos")), nbt.getUuid("owner"), nbt.getString("ownerName"),
+	public static ObeliskInfo fromNbt(CompoundTag nbt) {
+		ObeliskInfo info = new ObeliskInfo(nbt.getUUID("id"),
+				ResourceKey.create(Registries.DIMENSION, new ResourceLocation(nbt.getString("dim"))),
+				BlockPos.of(nbt.getLong("pos")), nbt.getUUID("owner"), nbt.getString("ownerName"),
 				nbt.getString("name"), nbt.getBoolean("public"), nbt.getInt("tier"));
 		info.color = nbt.getInt("color");
-		for (NbtElement element : nbt.getList("friends", NbtElement.COMPOUND_TYPE)) {
-			NbtCompound friend = (NbtCompound) element;
-			info.friends.put(friend.getUuid("id"), friend.getString("name"));
+		for (Tag element : nbt.getList("friends", Tag.TAG_COMPOUND)) {
+			CompoundTag friend = (CompoundTag) element;
+			info.friends.put(friend.getUUID("id"), friend.getString("name"));
 		}
 		return info;
 	}

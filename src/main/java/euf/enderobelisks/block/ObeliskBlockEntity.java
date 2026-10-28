@@ -2,13 +2,13 @@ package euf.enderobelisks.block;
 
 import euf.enderobelisks.EnderObelisks;
 import java.util.UUID;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
@@ -27,7 +27,7 @@ public class ObeliskBlockEntity extends BlockEntity {
 	public final Vector3f eyeDirection = new Vector3f(0, 0, -1);
 
 	public ObeliskBlockEntity(BlockPos pos, BlockState state) {
-		super(EnderObelisks.OBELISK_BLOCK_ENTITY, pos, state);
+		super(EnderObelisks.OBELISK_BLOCK_ENTITY.get(), pos, state);
 	}
 
 	public void update(UUID id, String name, int tier, int color) {
@@ -35,9 +35,9 @@ public class ObeliskBlockEntity extends BlockEntity {
 		this.name = name;
 		this.tier = tier;
 		this.color = color;
-		markDirty();
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), 3);
+		setChanged();
+		if (level != null) {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
 		}
 	}
 
@@ -59,10 +59,10 @@ public class ObeliskBlockEntity extends BlockEntity {
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
-		super.writeNbt(nbt);
+	protected void saveAdditional(CompoundTag nbt, net.minecraft.core.HolderLookup.Provider registries) {
+		super.saveAdditional(nbt, registries);
 		if (obeliskId != null) {
-			nbt.putUuid("id", obeliskId);
+			nbt.putUUID("id", obeliskId);
 		}
 		nbt.putString("name", name);
 		nbt.putInt("tier", tier);
@@ -70,21 +70,21 @@ public class ObeliskBlockEntity extends BlockEntity {
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
-		obeliskId = nbt.containsUuid("id") ? nbt.getUuid("id") : null;
+	protected void loadAdditional(CompoundTag nbt, net.minecraft.core.HolderLookup.Provider registries) {
+		super.loadAdditional(nbt, registries);
+		obeliskId = nbt.hasUUID("id") ? nbt.getUUID("id") : null;
 		name = nbt.getString("name");
 		tier = nbt.getInt("tier");
 		color = nbt.getInt("color");
 	}
 
 	@Override
-	public NbtCompound toInitialChunkDataNbt() {
-		return createNbt();
+	public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+		return saveWithoutMetadata(registries);
 	}
 
 	@Override
-	public Packet<ClientPlayPacketListener> toUpdatePacket() {
-		return BlockEntityUpdateS2CPacket.create(this);
+	public Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
 	}
 }

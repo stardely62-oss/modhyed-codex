@@ -6,25 +6,25 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.UseAction;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,124 +34,132 @@ import org.jetbrains.annotations.Nullable;
 public class ReturnShardItem extends Item {
 	private static final String KEY = "Obelisk";
 
-	public ReturnShardItem(Settings settings) {
+	public ReturnShardItem(Properties settings) {
 		super(settings);
 	}
 
-	@Nullable
-	static UUID boundId(ItemStack stack) {
-		NbtCompound nbt = stack.getSubNbt(KEY);
-		return nbt != null && nbt.containsUuid("id") ? nbt.getUuid("id") : null;
+    @Nullable
+    private static CompoundTag binding(ItemStack stack) {
+        CompoundTag root = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+        return root.contains(KEY, net.minecraft.nbt.Tag.TAG_COMPOUND) ? root.getCompound(KEY) : null;
+    }
+    @Nullable
+    static UUID boundId(ItemStack stack) {
+		CompoundTag nbt = binding(stack);
+		return nbt != null && nbt.hasUUID("id") ? nbt.getUUID("id") : null;
 	}
 
 	@Override
-	public ActionResult useOnBlock(ItemUsageContext context) {
-		PlayerEntity player = context.getPlayer();
-		BlockState state = context.getWorld().getBlockState(context.getBlockPos());
-		if (player == null || !player.isSneaking() || !(state.getBlock() instanceof ObeliskBlock)) {
-			return ActionResult.PASS;
+	public InteractionResult useOn(UseOnContext context) {
+		Player player = context.getPlayer();
+		BlockState state = context.getLevel().getBlockState(context.getClickedPos());
+		if (player == null || !player.isShiftKeyDown() || !(state.getBlock() instanceof ObeliskBlock)) {
+			return InteractionResult.PASS;
 		}
-		if (context.getWorld() instanceof ServerWorld world) {
-			Optional<ObeliskInfo> info = ObeliskService.at(world, ObeliskBlock.lowerPos(state, context.getBlockPos()));
+		if (context.getLevel() instanceof ServerLevel world) {
+			Optional<ObeliskInfo> info = ObeliskService.at(world, ObeliskBlock.lowerPos(state, context.getClickedPos()));
 			if (info.isEmpty() || !ObeliskService.canUse(info.get(), player)) {
-				player.sendMessage(Text.translatable("ender_obelisks.teleport.no_access"), true);
-				return ActionResult.FAIL;
+				player.displayClientMessage(Component.translatable("ender_obelisks.teleport.no_access"), true);
+				return InteractionResult.FAIL;
 			}
-			bind(context.getStack(), info.get());
-			player.sendMessage(Text.translatable("ender_obelisks.return.bound", info.get().name), true);
-			world.playSound(null, context.getBlockPos(), ObeliskSounds.PLACE, SoundCategory.PLAYERS, 0.6f, 1.4f);
+			bind(context.getItemInHand(), info.get());
+			player.displayClientMessage(Component.translatable("ender_obelisks.return.bound", info.get().name), true);
+			world.playSound(null, context.getClickedPos(), ObeliskSounds.PLACE.get(), SoundSource.PLAYERS, 0.6f, 1.4f);
 		}
-		return ActionResult.success(context.getWorld().isClient());
+		return InteractionResult.sidedSuccess(context.getLevel().isClientSide());
 	}
 
 	public static void bind(ItemStack stack, ObeliskInfo info) {
-		NbtCompound nbt = stack.getOrCreateSubNbt(KEY);
-		nbt.putUuid("id", info.id);
+		CompoundTag nbt = new CompoundTag();
+		nbt.putUUID("id", info.id);
 		nbt.putString("name", info.name);
-		nbt.putString("dim", info.dimension.getValue().toString());
+		nbt.putString("dim", info.dimension.location().toString());
 		nbt.putLong("pos", info.pos.asLong());
+        CompoundTag root = stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.EMPTY).copyTag();
+        root.put(KEY, nbt);
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(root));
 	}
 
 	@Override
-	public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-		ItemStack stack = user.getStackInHand(hand);
+	public InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
+		ItemStack stack = user.getItemInHand(hand);
 		if (boundId(stack) == null) {
-			if (!world.isClient()) {
-				user.sendMessage(Text.translatable("ender_obelisks.return.unbound"), true);
+			if (!world.isClientSide()) {
+				user.displayClientMessage(Component.translatable("ender_obelisks.return.unbound"), true);
 			}
-			return TypedActionResult.fail(stack);
+			return InteractionResultHolder.fail(stack);
 		}
-		user.setCurrentHand(hand);
-		if (!world.isClient()) {
-			world.playSound(null, user.getX(), user.getY(), user.getZ(), ObeliskSounds.CHANNEL, SoundCategory.PLAYERS, 0.6f, 0.8f);
+		user.startUsingItem(hand);
+		if (!world.isClientSide()) {
+			world.playSound(null, user.getX(), user.getY(), user.getZ(), ObeliskSounds.CHANNEL.get(), SoundSource.PLAYERS, 0.6f, 0.8f);
 		}
-		return TypedActionResult.consume(stack);
+		return InteractionResultHolder.consume(stack);
 	}
 
 	@Override
-	public int getMaxUseTime(ItemStack stack) {
+	public int getUseDuration(ItemStack stack, LivingEntity user) {
 		return ObeliskConfig.get().returnShardSeconds * 20;
 	}
 
 	@Override
-	public UseAction getUseAction(ItemStack stack) {
-		return UseAction.BOW;
+	public UseAnim getUseAnimation(ItemStack stack) {
+		return UseAnim.BOW;
 	}
 
 	@Override
-	public void usageTick(World world, LivingEntity user, ItemStack stack, int remainingUseTicks) {
-		if (world instanceof ServerWorld serverWorld && remainingUseTicks % 2 == 0) {
+	public void onUseTick(Level world, LivingEntity user, ItemStack stack, int remainingUseTicks) {
+		if (world instanceof ServerLevel serverWorld && remainingUseTicks % 2 == 0) {
 			double a = remainingUseTicks * 0.4;
-			serverWorld.spawnParticles(ParticleTypes.REVERSE_PORTAL, user.getX() + Math.cos(a) * 0.8, user.getY() + 1.0,
+			serverWorld.sendParticles(ParticleTypes.REVERSE_PORTAL, user.getX() + Math.cos(a) * 0.8, user.getY() + 1.0,
 					user.getZ() + Math.sin(a) * 0.8, 2, 0.05, 0.3, 0.05, 0);
-			if (user instanceof ServerPlayerEntity player) {
+			if (user instanceof ServerPlayer player) {
 				// Without a visible charge the hold looked like nothing happens: show it filling above the hotbar
-				int total = getMaxUseTime(stack);
-				player.sendMessage(Text.translatable("ender_obelisks.return.channel", boundName(stack),
+				int total = getUseDuration(stack, user);
+				player.displayClientMessage(Component.translatable("ender_obelisks.return.channel", boundName(stack),
 						bar(1 - remainingUseTicks / (float) total)), true);
 			}
 		}
 	}
 
 	@Override
-	public void onStoppedUsing(ItemStack stack, World world, LivingEntity user, int remainingUseTicks) {
-		if (!world.isClient() && user instanceof ServerPlayerEntity player && remainingUseTicks > 0) {
-			player.sendMessage(Text.translatable("ender_obelisks.return.released", ObeliskConfig.get().returnShardSeconds)
-					.formatted(Formatting.YELLOW), true);
+	public void releaseUsing(ItemStack stack, Level world, LivingEntity user, int remainingUseTicks) {
+		if (!world.isClientSide() && user instanceof ServerPlayer player && remainingUseTicks > 0) {
+			player.displayClientMessage(Component.translatable("ender_obelisks.return.released", ObeliskConfig.get().returnShardSeconds)
+					.withStyle(ChatFormatting.YELLOW), true);
 		}
 	}
 
 	private static String boundName(ItemStack stack) {
-		NbtCompound nbt = stack.getSubNbt(KEY);
+		CompoundTag nbt = binding(stack);
 		return nbt == null ? "" : nbt.getString("name");
 	}
 
 	/** Ten blocks, lit ender teal up to the charge. */
-	private static Text bar(float progress) {
+	private static Component bar(float progress) {
 		int lit = Math.round(10 * Math.max(0, Math.min(1, progress)));
-		return Text.literal("■".repeat(lit)).formatted(Formatting.DARK_AQUA)
-				.append(Text.literal("■".repeat(10 - lit)).formatted(Formatting.DARK_GRAY));
+		return Component.literal("■".repeat(lit)).withStyle(ChatFormatting.DARK_AQUA)
+				.append(Component.literal("■".repeat(10 - lit)).withStyle(ChatFormatting.DARK_GRAY));
 	}
 
 	@Override
-	public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
-		if (!(user instanceof ServerPlayerEntity player)) {
+	public ItemStack finishUsingItem(ItemStack stack, Level world, LivingEntity user) {
+		if (!(user instanceof ServerPlayer player)) {
 			return stack;
 		}
 		TeleportResult result = goHome(player, stack);
 		if (result != TeleportResult.OK) {
-			player.sendMessage(Text.translatable("ender_obelisks.teleport." + result.name().toLowerCase(Locale.ROOT)), true);
+			player.displayClientMessage(Component.translatable("ender_obelisks.teleport." + result.name().toLowerCase(Locale.ROOT)), true);
 			return stack;
 		}
-		player.getItemCooldownManager().set(this, ObeliskConfig.get().returnShardCooldownSeconds * 20);
-		if (!player.getAbilities().creativeMode) {
-			stack.decrement(1);
+		player.getCooldowns().addCooldown(this, ObeliskConfig.get().returnShardCooldownSeconds * 20);
+		if (!player.getAbilities().instabuild) {
+			stack.shrink(1);
 		}
 		return stack;
 	}
 
 	/** The checks and the jump, without the hold-to-use part (tests call this directly). */
-	public static TeleportResult goHome(ServerPlayerEntity player, ItemStack stack) {
+	public static TeleportResult goHome(ServerPlayer player, ItemStack stack) {
 		UUID id = boundId(stack);
 		ObeliskInfo target = id == null ? null : ObeliskRegistry.get(player.getServer()).byId(id).orElse(null);
 		if (target == null) {
@@ -160,31 +168,31 @@ public class ReturnShardItem extends Item {
 		if (!ObeliskService.canUse(target, player)) {
 			return TeleportResult.NO_ACCESS;
 		}
-		boolean sameDimension = target.dimension.equals(player.getWorld().getRegistryKey());
+		boolean sameDimension = target.dimension.equals(player.level().dimension());
 		if (!sameDimension && !ObeliskConfig.get().returnShardCrossDimension) {
 			return TeleportResult.OTHER_DIMENSION;
 		}
-		double distance = sameDimension ? Math.sqrt(player.getBlockPos().getSquaredDistance(target.pos)) : 0;
+		double distance = sameDimension ? Math.sqrt(player.blockPosition().distSqr(target.pos)) : 0;
 		TeleportResult result = ObeliskService.arrive(player, target);
 		if (result == TeleportResult.OK) {
-			ObeliskCriteria.RETURNED.trigger(player, distance);
+			ObeliskCriteria.RETURNED.get().trigger(player, distance);
 		}
 		return result;
 	}
 
 	@Override
-	public void appendTooltip(ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-		NbtCompound nbt = stack.getSubNbt(KEY);
+	public void appendHoverText(ItemStack stack, Item.TooltipContext tooltipContext, List<Component> tooltip, TooltipFlag context) {
+		CompoundTag nbt = binding(stack);
 		if (nbt == null) {
-			tooltip.add(Text.translatable("ender_obelisks.return.tooltip_unbound").formatted(Formatting.GRAY));
+			tooltip.add(Component.translatable("ender_obelisks.return.tooltip_unbound").withStyle(ChatFormatting.GRAY));
 		} else {
-			tooltip.add(Text.translatable("ender_obelisks.return.tooltip_bound", nbt.getString("name")).formatted(Formatting.AQUA));
-			tooltip.add(Text.translatable("ender_obelisks.return.tooltip_use", ObeliskConfig.get().returnShardSeconds).formatted(Formatting.GRAY));
+			tooltip.add(Component.translatable("ender_obelisks.return.tooltip_bound", nbt.getString("name")).withStyle(ChatFormatting.AQUA));
+			tooltip.add(Component.translatable("ender_obelisks.return.tooltip_use", ObeliskConfig.get().returnShardSeconds).withStyle(ChatFormatting.GRAY));
 		}
 	}
 
 	@Override
-	public boolean hasGlint(ItemStack stack) {
+	public boolean isFoil(ItemStack stack) {
 		return boundId(stack) != null;
 	}
 }

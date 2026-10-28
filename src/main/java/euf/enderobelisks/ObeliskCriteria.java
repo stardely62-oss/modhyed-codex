@@ -1,73 +1,34 @@
 package euf.enderobelisks;
 
-import com.google.gson.JsonObject;
-import net.fabricmc.fabric.api.object.builder.v1.advancement.CriterionRegistry;
-import net.minecraft.advancement.criterion.AbstractCriterion;
-import net.minecraft.advancement.criterion.AbstractCriterionConditions;
-import net.minecraft.predicate.entity.AdvancementEntityPredicateDeserializer;
-import net.minecraft.predicate.entity.AdvancementEntityPredicateSerializer;
-import net.minecraft.predicate.entity.LootContextPredicate;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.JsonHelper;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.Optional;
+import java.util.function.Supplier;
+import net.minecraft.advancements.CriterionTrigger;
+import net.minecraft.advancements.critereon.ContextAwarePredicate;
+import net.minecraft.advancements.critereon.EntityPredicate;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
-/**
- * Advancement triggers: "ender_obelisks:teleported" and "ender_obelisks:returned" (return shard), both with an
- * optional "min_distance" in blocks, and "ender_obelisks:upgraded" (optional "min_tier").
- */
+/** Codec-backed advancement triggers with the original per-trigger thresholds. */
 public final class ObeliskCriteria {
-	public static final NumberCriterion TELEPORTED = CriterionRegistry.register(new NumberCriterion(EnderObelisks.id("teleported"), "min_distance"));
-	public static final NumberCriterion UPGRADED = CriterionRegistry.register(new NumberCriterion(EnderObelisks.id("upgraded"), "min_tier"));
-	public static final NumberCriterion RETURNED = CriterionRegistry.register(new NumberCriterion(EnderObelisks.id("returned"), "min_distance"));
-	/** Fired when a ruin is restored (vanilla's item_used_on_block sees the block only after it became an obelisk). */
-	public static final NumberCriterion RESTORED = CriterionRegistry.register(new NumberCriterion(EnderObelisks.id("restored"), "min_count"));
-
-	private ObeliskCriteria() {
-	}
-
-	public static void init() {
-	}
-
-	/** A trigger that fires with a number and matches when it is at least the condition's minimum. */
-	public static class NumberCriterion extends AbstractCriterion<NumberCriterion.Conditions> {
-		private final Identifier id;
-		private final String field;
-
-		public NumberCriterion(Identifier id, String field) {
-			this.id = id;
-			this.field = field;
-		}
-
-		@Override
-		public Identifier getId() {
-			return id;
-		}
-
-		@Override
-		protected Conditions conditionsFromJson(JsonObject json, LootContextPredicate player, AdvancementEntityPredicateDeserializer deserializer) {
-			return new Conditions(id, field, player, JsonHelper.getDouble(json, field, 0));
-		}
-
-		public void trigger(ServerPlayerEntity player, double value) {
-			trigger(player, conditions -> value >= conditions.minimum);
-		}
-
-		public static class Conditions extends AbstractCriterionConditions {
-			private final String field;
-			private final double minimum;
-
-			public Conditions(Identifier id, String field, LootContextPredicate player, double minimum) {
-				super(id, player);
-				this.field = field;
-				this.minimum = minimum;
-			}
-
-			@Override
-			public JsonObject toJson(AdvancementEntityPredicateSerializer serializer) {
-				JsonObject json = super.toJson(serializer);
-				json.addProperty(field, minimum);
-				return json;
-			}
-		}
-	}
+    public static final DeferredRegister<CriterionTrigger<?>> REGISTER = DeferredRegister.create(Registries.TRIGGER_TYPE, EnderObelisks.MOD_ID);
+    public static final Supplier<NumberCriterion> TELEPORTED = REGISTER.register("teleported", () -> new NumberCriterion("min_distance"));
+    public static final Supplier<NumberCriterion> UPGRADED = REGISTER.register("upgraded", () -> new NumberCriterion("min_tier"));
+    public static final Supplier<NumberCriterion> RETURNED = REGISTER.register("returned", () -> new NumberCriterion("min_distance"));
+    public static final Supplier<NumberCriterion> RESTORED = REGISTER.register("restored", () -> new NumberCriterion("min_count"));
+    public static final class NumberCriterion extends SimpleCriterionTrigger<Conditions> {
+        private final Codec<Conditions> codec;
+        NumberCriterion(String field) {
+            codec = RecordCodecBuilder.create(instance -> instance.group(
+                EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(Conditions::player),
+                Codec.DOUBLE.optionalFieldOf(field, 0d).forGetter(Conditions::minimum)
+            ).apply(instance, Conditions::new));
+        }
+        @Override public Codec<Conditions> codec() { return codec; }
+        public void trigger(ServerPlayer player, double value) { trigger(player, conditions -> value >= conditions.minimum()); }
+    }
+    public record Conditions(Optional<ContextAwarePredicate> player, double minimum) implements SimpleCriterionTrigger.SimpleInstance {}
 }

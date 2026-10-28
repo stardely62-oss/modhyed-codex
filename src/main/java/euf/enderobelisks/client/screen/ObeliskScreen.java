@@ -1,6 +1,7 @@
 package euf.enderobelisks.client.screen;
 
 import euf.enderobelisks.ObeliskService;
+import com.mojang.math.Axis;
 import euf.enderobelisks.ObeliskColors;
 import euf.enderobelisks.ObeliskTiers;
 import euf.enderobelisks.client.map.MapCache;
@@ -13,21 +14,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Language;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import euf.enderobelisks.platform.Network.Client;
+import euf.enderobelisks.platform.Network;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.locale.Language;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -92,7 +92,7 @@ public class ObeliskScreen extends Screen {
 	private int mapY1;
 	private int panelX;
 
-	private TextFieldWidget nameField;
+	private EditBox nameField;
 	private RuneButton renameButton;
 	private RuneButton accessButton;
 	private RuneButton friendsButton;
@@ -100,7 +100,7 @@ public class ObeliskScreen extends Screen {
 	private RuneButton teleportButton;
 
 	public ObeliskScreen(MenuData data) {
-		super(Text.translatable("ender_obelisks.menu.title"));
+		super(Component.translatable("ender_obelisks.menu.title"));
 		this.data = data;
 		this.centerX = data.sourcePos().getX() + 0.5;
 		this.centerZ = data.sourcePos().getZ() + 0.5;
@@ -121,7 +121,7 @@ public class ObeliskScreen extends Screen {
 			selected = null;
 		}
 		if (nameField != null && !nameField.isFocused()) {
-			nameField.setText(newData.name());
+			nameField.setValue(newData.name());
 		}
 		refreshButtons();
 	}
@@ -135,28 +135,28 @@ public class ObeliskScreen extends Screen {
 		mapY1 = height - PAD - 4;
 		if (scale == 0) {
 			int size = Math.min(mapX1 - mapX0, mapY1 - mapY0);
-			scale = MathHelper.clamp(size / (data.range() * 2.3), MIN_SCALE, MAX_SCALE);
+			scale = Mth.clamp(size / (data.range() * 2.3), MIN_SCALE, MAX_SCALE);
 		}
 		dataTime = worldTime();
 
 		int x = panelX + PAD;
 		int w = PANEL_W - 2 * PAD;
-		String typed = nameField != null ? nameField.getText() : data.name();
-		nameField = new TextFieldWidget(textRenderer, x + 6, Y_NAME + 5, w - 30, 10, Text.translatable("ender_obelisks.menu.name"));
+		String typed = nameField != null ? nameField.getValue() : data.name();
+		nameField = new EditBox(font, x + 6, Y_NAME + 5, w - 30, 10, Component.translatable("ender_obelisks.menu.name"));
 		nameField.setMaxLength(ObeliskService.MAX_NAME_LENGTH);
-		nameField.setDrawsBackground(false);
-		nameField.setEditableColor(ObeliskUi.TEXT);
-		nameField.setUneditableColor(ObeliskUi.TEXT);
-		nameField.setText(typed);
-		addDrawableChild(nameField);
-		renameButton = addDrawableChild(new RuneButton(x + w - 19, Y_NAME + 1, 18, 16, Text.literal("✔"), null, b -> rename()));
-		renameButton.setTooltip(Tooltip.of(Text.translatable("ender_obelisks.menu.rename")));
-		accessButton = addDrawableChild(new RuneButton(x, Y_ACCESS, 22, 20, Text.empty(), ObeliskUi.ICON_PUBLIC,
+		nameField.setBordered(false);
+		nameField.setTextColor(ObeliskUi.TEXT);
+		nameField.setTextColorUneditable(ObeliskUi.TEXT);
+		nameField.setValue(typed);
+		addRenderableWidget(nameField);
+		renameButton = addRenderableWidget(new RuneButton(x + w - 19, Y_NAME + 1, 18, 16, Component.literal("✔"), null, b -> rename()));
+		renameButton.setTooltip(Tooltip.create(Component.translatable("ender_obelisks.menu.rename")));
+		accessButton = addRenderableWidget(new RuneButton(x, Y_ACCESS, 22, 20, Component.empty(), ObeliskUi.ICON_PUBLIC,
 				b -> send(ObeliskPackets.TOGGLE_PUBLIC, null)));
-		friendsButton = addDrawableChild(new RuneButton(x + 25, Y_ACCESS, 36, 20, Text.empty(), ObeliskUi.ICON_FRIENDS,
-				b -> client.setScreen(new FriendsScreen(this))));
-		upgradeButton = addDrawableChild(new RuneButton(x + w - 58, Y_UPGRADE, 58, 20, Text.empty(), ObeliskUi.ICON_UPGRADE, b -> upgrade()));
-		teleportButton = addDrawableChild(new RuneButton(x, Y_TELEPORT, w, 24, Text.translatable("ender_obelisks.menu.teleport"),
+		friendsButton = addRenderableWidget(new RuneButton(x + 25, Y_ACCESS, 36, 20, Component.empty(), ObeliskUi.ICON_FRIENDS,
+				b -> minecraft.setScreen(new FriendsScreen(this))));
+		upgradeButton = addRenderableWidget(new RuneButton(x + w - 58, Y_UPGRADE, 58, 20, Component.empty(), ObeliskUi.ICON_UPGRADE, b -> upgrade()));
+		teleportButton = addRenderableWidget(new RuneButton(x, Y_TELEPORT, w, 24, Component.translatable("ender_obelisks.menu.teleport"),
 				ObeliskUi.ICON_TELEPORT, b -> teleportSelected()).primary());
 		refreshButtons();
 	}
@@ -167,22 +167,22 @@ public class ObeliskScreen extends Screen {
 		}
 		boolean owner = data.isOwner();
 		nameField.setEditable(owner);
-		renameButton.visible = owner && !nameField.getText().equals(data.name());
+		renameButton.visible = owner && !nameField.getValue().equals(data.name());
 		accessButton.active = owner;
 		accessButton.setIcon(data.isPublic() ? ObeliskUi.ICON_PUBLIC : ObeliskUi.ICON_PRIVATE);
-		accessButton.setTooltip(Tooltip.of(Text.translatable(data.isPublic() ? "ender_obelisks.menu.access_public" : "ender_obelisks.menu.access_private")));
+		accessButton.setTooltip(Tooltip.create(Component.translatable(data.isPublic() ? "ender_obelisks.menu.access_public" : "ender_obelisks.menu.access_private")));
 		friendsButton.visible = owner;
-		friendsButton.setMessage(Text.literal(String.valueOf(data.friends().size())));
-		friendsButton.setTooltip(Tooltip.of(Text.translatable("ender_obelisks.menu.friends", data.friends().size())));
+		friendsButton.setMessage(Component.literal(String.valueOf(data.friends().size())));
+		friendsButton.setTooltip(Tooltip.create(Component.translatable("ender_obelisks.menu.friends", data.friends().size())));
 		List<ItemStack> cost = data.nextCost();
 		upgradeButton.visible = !data.maxTier();
 		upgradeButton.active = owner && !data.maxTier() && (creative() || cost.stream().allMatch(s -> have(s) >= s.getCount()));
-		upgradeButton.setMessage(Text.literal(String.valueOf(data.nextRange())));
-		upgradeButton.setTooltip(Tooltip.of(Text.translatable("ender_obelisks.menu.next_tier", data.nextRange())));
+		upgradeButton.setMessage(Component.literal(String.valueOf(data.nextRange())));
+		upgradeButton.setTooltip(Tooltip.create(Component.translatable("ender_obelisks.menu.next_tier", data.nextRange())));
 		Entry target = selectedEntry();
 		teleportButton.active = target != null && !target.id().equals(data.sourceId()) && inRange(target) && cooldownLeft() == 0;
 		teleportButton.setProgress(cooldownLeft() > 0 && data.cooldownTotal() > 0 ? 1 - cooldownLeft() / (float) data.cooldownTotal() : -1);
-		teleportButton.setTooltip(target == null || teleportButton.active ? null : Tooltip.of(statusLine(target)));
+		teleportButton.setTooltip(target == null || teleportButton.active ? null : Tooltip.create(statusLine(target)));
 	}
 
 	@Override
@@ -212,11 +212,11 @@ public class ObeliskScreen extends Screen {
 	public void teleportSelected() {
 		Entry target = selectedEntry();
 		if (target != null) {
-			PacketByteBuf buf = PacketByteBufs.create();
+			FriendlyByteBuf buf = Network.create();
 			buf.writeBlockPos(data.sourcePos());
-			buf.writeUuid(target.id());
-			ClientPlayNetworking.send(ObeliskPackets.TELEPORT, buf);
-			close();
+			buf.writeUUID(target.id());
+			Client.send(ObeliskPackets.TELEPORT, buf);
+			onClose();
 		}
 	}
 
@@ -226,23 +226,23 @@ public class ObeliskScreen extends Screen {
 
 	private void rename() {
 		if (data.isOwner()) {
-			send(ObeliskPackets.RENAME, nameField.getText());
+			send(ObeliskPackets.RENAME, nameField.getValue());
 		}
 	}
 
-	private void send(Identifier channel, @Nullable String text) {
-		PacketByteBuf buf = PacketByteBufs.create();
+	private void send(ResourceLocation channel, @Nullable String text) {
+		FriendlyByteBuf buf = Network.create();
 		buf.writeBlockPos(data.sourcePos());
 		if (text != null) {
-			buf.writeString(text);
+			buf.writeUtf(text);
 		}
-		ClientPlayNetworking.send(channel, buf);
+		Client.send(channel, buf);
 	}
 
 	// ---- helpers ----
 
 	private long worldTime() {
-		return client != null && client.world != null ? client.world.getTime() : 0;
+		return minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : 0;
 	}
 
 	private int cooldownLeft() {
@@ -250,15 +250,15 @@ public class ObeliskScreen extends Screen {
 	}
 
 	private boolean creative() {
-		return client != null && client.player != null && client.player.getAbilities().creativeMode;
+		return minecraft != null && minecraft.player != null && minecraft.player.getAbilities().instabuild;
 	}
 
 	private int have(ItemStack stack) {
-		return client == null || client.player == null ? 0 : client.player.getInventory().count(stack.getItem());
+		return minecraft == null || minecraft.player == null ? 0 : minecraft.player.getInventory().countItem(stack.getItem());
 	}
 
 	private double distance(Entry entry) {
-		return Math.sqrt(entry.pos().getSquaredDistance(data.sourcePos()));
+		return Math.sqrt(entry.pos().distSqr(data.sourcePos()));
 	}
 
 	private boolean sameDimension(Entry entry) {
@@ -273,9 +273,9 @@ public class ObeliskScreen extends Screen {
 		return distance(entry) <= data.range();
 	}
 
-	private static Text dimensionName(Identifier id) {
+	private static Component dimensionName(ResourceLocation id) {
 		String key = "ender_obelisks.dim." + id.getPath();
-		return Text.translatableWithFallback(key, id.getPath());
+		return Component.translatableWithFallback(key, id.getPath());
 	}
 
 	@Nullable
@@ -351,7 +351,7 @@ public class ObeliskScreen extends Screen {
 	// ---- drawing ----
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
 		ObeliskUi.background(context, width, height);
 		drawTitle(context);
 
@@ -359,23 +359,23 @@ public class ObeliskScreen extends Screen {
 		context.fill(mapX0, mapY0, mapX1, mapY1, ObeliskUi.VOID);
 		context.enableScissor(mapX0, mapY0, mapX1, mapY1);
 		// Thousands of one-pixel fills: batch them into one draw call each
-		context.draw(() -> drawStars(context));
+		context.drawManaged(() -> drawStars(context));
 		drawTiles(context);
-		context.draw(() -> {
+		context.drawManaged(() -> {
 			drawRangeCircle(context);
 			drawLeyLine(context);
 		});
 		drawMarkers(context, mouseX, mouseY);
 		drawPlayer(context);
-		context.draw(() -> drawVignette(context));
+		context.drawManaged(() -> drawVignette(context));
 		context.disableScissor();
 		drawScaleBar(context);
 		if (inMap(mouseX, mouseY)) {
 			double wx = centerX + (mouseX - mapCenterX()) / scale;
 			double wz = centerZ + (mouseY - mapCenterY()) / scale;
 			String coords = String.format("X %d  Z %d", (int) Math.floor(wx), (int) Math.floor(wz));
-			context.fill(mapX0 + 3, mapY1 - 14, mapX0 + 9 + textRenderer.getWidth(coords), mapY1 - 3, 0xA0000000);
-			context.drawTextWithShadow(textRenderer, coords, mapX0 + 6, mapY1 - 12, ObeliskUi.MUTED);
+			context.fill(mapX0 + 3, mapY1 - 14, mapX0 + 9 + font.width(coords), mapY1 - 3, 0xA0000000);
+			context.drawString(font, coords, mapX0 + 6, mapY1 - 12, ObeliskUi.MUTED);
 		}
 
 		drawPanel(context, mouseX, mouseY);
@@ -384,17 +384,17 @@ public class ObeliskScreen extends Screen {
 
 		Entry hovered = inMap(mouseX, mouseY) ? entryAt(mouseX, mouseY) : null;
 		if (hovered != null) {
-			context.drawTooltip(textRenderer, describe(hovered), mouseX, mouseY);
+			context.renderComponentTooltip(font, describe(hovered), mouseX, mouseY);
 		}
 	}
 
 	/** The menu's title above the map, between two fading lines with gems at their ends. */
-	private void drawTitle(DrawContext context) {
-		Text title = Text.translatable("ender_obelisks.menu.title");
+	private void drawTitle(GuiGraphics context) {
+		Component title = Component.translatable("ender_obelisks.menu.title");
 		int cx = (mapX0 + mapX1) / 2;
-		int tw = textRenderer.getWidth(title);
+		int tw = font.width(title);
 		int y = 9;
-		context.drawTextWithShadow(textRenderer, title, cx - tw / 2, y, ObeliskUi.VIOLET);
+		context.drawString(font, title, cx - tw / 2, y, ObeliskUi.VIOLET);
 		int len = Math.min(120, (mapX1 - mapX0 - tw) / 2 - 16);
 		if (len > 10) {
 			ObeliskUi.divider(context, cx - tw / 2 - 8 - len, cx - tw / 2 - 8, y + 3);
@@ -403,7 +403,7 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** The void outside the explored land: faint stars that drift slowly as the map pans and twinkle. */
-	private void drawStars(DrawContext context) {
+	private void drawStars(GuiGraphics context) {
 		int w = mapX1 - mapX0;
 		int h = mapY1 - mapY0;
 		float t = ObeliskUi.time();
@@ -419,7 +419,7 @@ public class ObeliskScreen extends Screen {
 		}
 	}
 
-	private void drawTiles(DrawContext context) {
+	private void drawTiles(GuiGraphics context) {
 		MapCache cache = MapScanner.cache();
 		if (cache == null) {
 			return;
@@ -432,22 +432,22 @@ public class ObeliskScreen extends Screen {
 		int tz1 = Math.floorDiv((int) Math.floor(centerZ + halfH), MapTiles.TILE_BLOCKS);
 		for (int tz = tz0; tz <= tz1; tz++) {
 			for (int tx = tx0; tx <= tx1; tx++) {
-				Identifier texture = MapTiles.get(cache, tx, tz);
+				ResourceLocation texture = MapTiles.get(cache, tx, tz);
 				if (texture == null) {
 					continue;
 				}
-				context.getMatrices().push();
-				context.getMatrices().translate(mapCenterX() + (tx * MapTiles.TILE_BLOCKS - centerX) * scale,
+				context.pose().pushPose();
+				context.pose().translate(mapCenterX() + (tx * MapTiles.TILE_BLOCKS - centerX) * scale,
 						mapCenterY() + (tz * MapTiles.TILE_BLOCKS - centerZ) * scale, 0);
-				context.getMatrices().scale((float) scale, (float) scale, 1.0f);
-				context.drawTexture(texture, 0, 0, 0, 0, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS);
-				context.getMatrices().pop();
+				context.pose().scale((float) scale, (float) scale, 1.0f);
+				context.blit(texture, 0, 0, 0, 0, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS, MapTiles.TILE_BLOCKS);
+				context.pose().popPose();
 			}
 		}
 	}
 
 	/** The range: a faint teal aura inside and a ring with pulses of light running around it. */
-	private void drawRangeCircle(DrawContext context) {
+	private void drawRangeCircle(GuiGraphics context) {
 		double cx = mapCenterX() + (data.sourcePos().getX() + 0.5 - centerX) * scale;
 		double cy = mapCenterY() + (data.sourcePos().getZ() + 0.5 - centerZ) * scale;
 		double r = data.range() * scale;
@@ -462,7 +462,7 @@ public class ObeliskScreen extends Screen {
 			}
 		}
 		float t = ObeliskUi.time();
-		int steps = (int) MathHelper.clamp(r * Math.PI, 64, 1400);
+		int steps = (int) Mth.clamp(r * Math.PI, 64, 1400);
 		for (int i = 0; i < steps; i++) {
 			double a = i * Math.PI * 2 / steps;
 			int x = (int) Math.round(cx + Math.cos(a) * r);
@@ -476,7 +476,7 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** A dotted line of light flowing from this obelisk to the chosen one: teal if it can be reached, dim red if not. */
-	private void drawLeyLine(DrawContext context) {
+	private void drawLeyLine(GuiGraphics context) {
 		Entry target = selectedEntry();
 		if (target == null || !sameDimension(target) || target.id().equals(data.sourceId())) {
 			return;
@@ -499,7 +499,7 @@ public class ObeliskScreen extends Screen {
 		}
 	}
 
-	private void drawMarkers(DrawContext context, int mouseX, int mouseY) {
+	private void drawMarkers(GuiGraphics context, int mouseX, int mouseY) {
 		Entry hovered = entryAt(mouseX, mouseY);
 		float t = ObeliskUi.time();
 		// Labels go in order of importance (here, chosen, under the mouse, the rest); one that would overlap a label
@@ -537,18 +537,18 @@ public class ObeliskScreen extends Screen {
 			ObeliskUi.pixels(context, MARKER, x - 2, y - 4, color, highlight, 0xFF000000);
 			boolean label = isSelected || entry == hovered || here || scale >= 0.12;
 			if (label) {
-				int tw = textRenderer.getWidth(entry.name());
+				int tw = font.width(entry.name());
 				int[] box = {x - tw / 2 - 3, y + 6, x + tw / 2 + 3, y + 17};
 				if (placed.stream().noneMatch(b -> b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3])) {
 					placed.add(box);
 					context.fill(box[0], box[1], box[2], box[3], 0x90000000);
-					context.drawCenteredTextWithShadow(textRenderer, entry.name(), x, y + 8, color);
+					context.drawCenteredString(font, entry.name(), x, y + 8, color);
 				}
 			}
 		}
 	}
 
-	private static void ring(DrawContext context, int cx, int cy, float r, int color) {
+	private static void ring(GuiGraphics context, int cx, int cy, float r, int color) {
 		int steps = Math.max(16, (int) (r * 6));
 		for (int i = 0; i < steps; i++) {
 			double a = i * Math.PI * 2 / steps;
@@ -558,22 +558,22 @@ public class ObeliskScreen extends Screen {
 		}
 	}
 
-	private void drawPlayer(DrawContext context) {
-		if (client == null || client.player == null) {
+	private void drawPlayer(GuiGraphics context) {
+		if (minecraft == null || minecraft.player == null) {
 			return;
 		}
-		int x = toScreenX(client.player.getX());
-		int y = toScreenY(client.player.getZ());
-		context.getMatrices().push();
-		context.getMatrices().translate(x + 0.5f, y + 0.5f, 0);
+		int x = toScreenX(minecraft.player.getX());
+		int y = toScreenY(minecraft.player.getZ());
+		context.pose().pushPose();
+		context.pose().translate(x + 0.5f, y + 0.5f, 0);
 		// Yaw 0 looks south (+Z, down on the map); the arrow is drawn pointing up
-		context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(client.player.getYaw() + 180));
+		context.pose().mulPose(Axis.ZP.rotationDegrees(minecraft.player.getYRot() + 180));
 		ObeliskUi.pixels(context, ARROW, -2, -3, 0xFFFFFFFF, 0xFFFFFFFF, 0xFF000000);
-		context.getMatrices().pop();
+		context.pose().popPose();
 	}
 
 	/** Darkens the map towards its frame, so the land fades into the void. */
-	private void drawVignette(DrawContext context) {
+	private void drawVignette(GuiGraphics context) {
 		int depth = 16;
 		context.fillGradient(mapX0, mapY0, mapX1, mapY0 + depth, 0xB0000000, 0x00000000);
 		context.fillGradient(mapX0, mapY1 - depth, mapX1, mapY1, 0x00000000, 0xB0000000);
@@ -585,7 +585,7 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** A short bar in the bottom right corner showing how long a round number of blocks is at this zoom. */
-	private void drawScaleBar(DrawContext context) {
+	private void drawScaleBar(GuiGraphics context) {
 		int[] lengths = {5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000};
 		int blocks = lengths[lengths.length - 1];
 		for (int b : lengths) {
@@ -601,11 +601,11 @@ public class ObeliskScreen extends Screen {
 		context.fill(x0, y, x1, y + 1, ObeliskUi.MUTED);
 		context.fill(x0, y - 3, x0 + 1, y + 1, ObeliskUi.MUTED);
 		context.fill(x1 - 1, y - 3, x1, y + 1, ObeliskUi.MUTED);
-		String label = Text.translatable("ender_obelisks.menu.metres", blocks).getString();
-		context.drawTextWithShadow(textRenderer, label, (x0 + x1 - textRenderer.getWidth(label)) / 2, y - 11, ObeliskUi.MUTED);
+		String label = Component.translatable("ender_obelisks.menu.metres", blocks).getString();
+		context.drawString(font, label, (x0 + x1 - font.width(label)) / 2, y - 11, ObeliskUi.MUTED);
 	}
 
-	private void drawPanel(DrawContext context, int mouseX, int mouseY) {
+	private void drawPanel(GuiGraphics context, int mouseX, int mouseY) {
 		int x = panelX + PAD;
 		int w = PANEL_W - 2 * PAD;
 		int right = x + w;
@@ -625,9 +625,9 @@ public class ObeliskScreen extends Screen {
 				context.fill(gx - 1, Y_TIER - 2, gx, Y_TIER - 1, 0xC0FFFFFF);
 			}
 		}
-		String range = Text.translatable("ender_obelisks.menu.range", data.range()).getString();
-		int rw = textRenderer.getWidth(range);
-		context.drawTextWithShadow(textRenderer, range, right - rw, Y_TIER - 4, ObeliskUi.TEXT);
+		String range = Component.translatable("ender_obelisks.menu.range", data.range()).getString();
+		int rw = font.width(range);
+		context.drawString(font, range, right - rw, Y_TIER - 4, ObeliskUi.TEXT);
 		ObeliskUi.smallIcon(context, ObeliskUi.ICON_RANGE, right - rw - 11, Y_TIER - 4);
 
 		// Marker colour: eight gems; the chosen one is larger and framed in white
@@ -641,10 +641,10 @@ public class ObeliskScreen extends Screen {
 
 		// Upgrade: what it costs and what you have; the button on the right shows the next range
 		if (data.maxTier()) {
-			Text max = Text.translatable("ender_obelisks.menu.max_tier");
-			int tw = textRenderer.getWidth(max);
+			Component max = Component.translatable("ender_obelisks.menu.max_tier");
+			int tw = font.width(max);
 			int cx = x + w / 2;
-			context.drawTextWithShadow(textRenderer, max, cx - tw / 2, Y_UPGRADE + 6, ObeliskUi.GOLD);
+			context.drawString(font, max, cx - tw / 2, Y_UPGRADE + 6, ObeliskUi.GOLD);
 			ObeliskUi.diamond(context, cx - tw / 2 - 8, Y_UPGRADE + 9, 2, ObeliskUi.GOLD);
 			ObeliskUi.diamond(context, cx + tw / 2 + 7, Y_UPGRADE + 9, 2, ObeliskUi.GOLD);
 		} else {
@@ -653,12 +653,12 @@ public class ObeliskScreen extends Screen {
 			for (ItemStack stack : data.nextCost()) {
 				boolean enough = creative() || have(stack) >= stack.getCount();
 				String count = Math.min(have(stack), 999) + "/" + stack.getCount();
-				if (ix + 18 + textRenderer.getWidth(count) > limit) {
+				if (ix + 18 + font.width(count) > limit) {
 					count = "×" + stack.getCount();
 				}
-				context.drawItem(stack, ix, Y_UPGRADE + 2);
-				context.drawTextWithShadow(textRenderer, count, ix + 17, Y_UPGRADE + 6, enough ? ObeliskUi.GREEN : ObeliskUi.RED);
-				ix += 21 + textRenderer.getWidth(count);
+				context.renderItem(stack, ix, Y_UPGRADE + 2);
+				context.drawString(font, count, ix + 17, Y_UPGRADE + 6, enough ? ObeliskUi.GREEN : ObeliskUi.RED);
+				ix += 21 + font.width(count);
 			}
 		}
 
@@ -669,38 +669,38 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** The chosen destination: its marker and name, owner, the way there with a compass arrow, and a status gem. */
-	private void drawCard(DrawContext context, int x, int right) {
+	private void drawCard(GuiGraphics context, int x, int right) {
 		Entry target = selectedEntry();
 		if (target == null) {
 			ObeliskUi.pixels(context, MARKER, x + 2, Y_CARD + 14, 0xFF3A2E4C, 0xFF5A4C70, 0xFF030205);
-			context.drawTextWrapped(textRenderer, Text.translatable("ender_obelisks.menu.pick").formatted(Formatting.ITALIC), x + 14, Y_CARD + 10,
+			context.drawWordWrap(font, Component.translatable("ender_obelisks.menu.pick").withStyle(ChatFormatting.ITALIC), x + 14, Y_CARD + 10,
 					right - x - 14, ObeliskUi.MUTED);
 			return;
 		}
 		int color = colorOf(target);
 		ObeliskUi.pixels(context, MARKER, x + 1, Y_CARD + 1, color, 0xFFFFFFFF, 0xFF000000);
-		context.drawTextWithShadow(textRenderer, Language.getInstance().reorder(textRenderer.trimToWidth(Text.literal(target.name()).formatted(Formatting.BOLD), right - x - 12)),
+		context.drawString(font, Language.getInstance().getVisualOrder(font.substrByWidth(Component.literal(target.name()).withStyle(ChatFormatting.BOLD), right - x - 12)),
 				x + 12, Y_CARD + 1, color);
 
 		ObeliskUi.smallIcon(context, target.isPublic() ? ObeliskUi.ICON_PUBLIC : ObeliskUi.ICON_PRIVATE, x + 1, Y_CARD + 13);
-		context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(target.ownerName(), right - x - 12), x + 12, Y_CARD + 13, ObeliskUi.MUTED);
+		context.drawString(font, font.plainSubstrByWidth(target.ownerName(), right - x - 12), x + 12, Y_CARD + 13, ObeliskUi.MUTED);
 
 		if (sameDimension(target)) {
 			if (!target.id().equals(data.sourceId())) {
 				compass(context, x + 4, Y_CARD + 28, target);
 			}
-			context.drawTextWithShadow(textRenderer, Text.translatable("ender_obelisks.menu.metres", (int) distance(target)), x + 12, Y_CARD + 25,
+			context.drawString(font, Component.translatable("ender_obelisks.menu.metres", (int) distance(target)), x + 12, Y_CARD + 25,
 					ObeliskUi.TEXT);
 		} else {
 			ObeliskUi.diamond(context, x + 4, Y_CARD + 28, 2, ObeliskUi.VIOLET);
-			context.drawTextWithShadow(textRenderer, dimensionName(target.dimension()), x + 12, Y_CARD + 25, ObeliskUi.VIOLET);
+			context.drawString(font, dimensionName(target.dimension()), x + 12, Y_CARD + 25, ObeliskUi.VIOLET);
 		}
 
 		// Status: a coloured gem and a short word
-		Text status = statusShort(target);
+		Component status = statusShort(target);
 		int statusColor = statusColor(target);
 		int sy = Y_CARD + 38;
-		int sw = textRenderer.getWidth(status) + 18;
+		int sw = font.width(status) + 18;
 		context.fill(x, sy, x + sw, sy + 12, ObeliskUi.alpha(statusColor, 0.14f));
 		ObeliskUi.outline(context, x, sy, x + sw, sy + 12, ObeliskUi.alpha(statusColor, 0.45f));
 		if (cooldownLeft() > 0 && inRange(target) && !target.id().equals(data.sourceId())) {
@@ -708,25 +708,25 @@ public class ObeliskScreen extends Screen {
 		} else {
 			ObeliskUi.diamond(context, x + 7, sy + 6, 2, statusColor);
 		}
-		context.drawTextWithShadow(textRenderer, status, x + 14, sy + 2, statusColor);
+		context.drawString(font, status, x + 14, sy + 2, statusColor);
 	}
 
 	/** A small arrow pointing from this obelisk towards the target, north up like the map. */
-	private void compass(DrawContext context, int cx, int cy, Entry target) {
+	private void compass(GuiGraphics context, int cx, int cy, Entry target) {
 		double dx = target.pos().getX() - data.sourcePos().getX();
 		double dz = target.pos().getZ() - data.sourcePos().getZ();
 		float angle = (float) Math.toDegrees(Math.atan2(dz, dx)) + 90;
-		context.getMatrices().push();
-		context.getMatrices().translate(cx + 0.5f, cy + 0.5f, 0);
-		context.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(angle));
+		context.pose().pushPose();
+		context.pose().translate(cx + 0.5f, cy + 0.5f, 0);
+		context.pose().mulPose(Axis.ZP.rotationDegrees(angle));
 		ObeliskUi.pixels(context, ARROW, -2, -3, ObeliskUi.TEAL, ObeliskUi.TEAL, 0xFF000000);
-		context.getMatrices().pop();
+		context.pose().popPose();
 	}
 
-	private void drawList(DrawContext context, int x, int right, int mouseX, int mouseY) {
+	private void drawList(GuiGraphics context, int x, int right, int mouseX, int mouseY) {
 		List<Entry> entries = sortedEntries();
 		int rows = listRows();
-		listScroll = MathHelper.clamp(listScroll, 0, Math.max(0, entries.size() - rows));
+		listScroll = Mth.clamp(listScroll, 0, Math.max(0, entries.size() - rows));
 		boolean scrollbar = entries.size() > rows && rows > 0;
 		int textRight = scrollbar ? right - 5 : right;
 		for (int i = 0; i < rows && i + listScroll < entries.size(); i++) {
@@ -741,11 +741,11 @@ public class ObeliskScreen extends Screen {
 			}
 			int color = colorOf(entry);
 			ObeliskUi.diamond(context, x + 3, y + 3, 2, color);
-			String dist = sameDimension(entry) ? Text.translatable("ender_obelisks.menu.metres", (int) distance(entry)).getString()
+			String dist = sameDimension(entry) ? Component.translatable("ender_obelisks.menu.metres", (int) distance(entry)).getString()
 					: dimensionName(entry.dimension()).getString();
-			context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(entry.name(), textRight - x - 10 - textRenderer.getWidth(dist) - 6),
+			context.drawString(font, font.plainSubstrByWidth(entry.name(), textRight - x - 10 - font.width(dist) - 6),
 					x + 10, y, color);
-			context.drawTextWithShadow(textRenderer, dist, textRight - textRenderer.getWidth(dist), y, ObeliskUi.MUTED);
+			context.drawString(font, dist, textRight - font.width(dist), y, ObeliskUi.MUTED);
 		}
 		if (scrollbar) {
 			int trackTop = Y_LIST - 2;
@@ -758,20 +758,20 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** Words for the things drawn without them: the tier gems and the colour gems. */
-	private void drawPanelTooltips(DrawContext context, int mouseX, int mouseY) {
+	private void drawPanelTooltips(GuiGraphics context, int mouseX, int mouseY) {
 		int x = panelX + PAD;
 		if (mouseY >= Y_TIER - 5 && mouseY < Y_TIER + 5 && mouseX >= x && mouseX < x + 50) {
-			context.drawTooltip(textRenderer, Text.translatable("ender_obelisks.menu.tier", data.tier(), data.range()), mouseX, mouseY);
+			context.renderTooltip(font, Component.translatable("ender_obelisks.menu.tier", data.tier(), data.range()), mouseX, mouseY);
 		} else if (mouseY >= SWATCH_Y - SWATCH_R - 1 && mouseY <= SWATCH_Y + SWATCH_R + 1 && mouseX >= swatchX(0) - SWATCH_R - 1
 				&& mouseX <= swatchX(ObeliskColors.RGB.length - 1) + SWATCH_R + 1) {
-			context.drawTooltip(textRenderer, Text.translatable("ender_obelisks.menu.color"), mouseX, mouseY);
+			context.renderTooltip(font, Component.translatable("ender_obelisks.menu.color"), mouseX, mouseY);
 		} else if (!data.maxTier() && mouseY >= Y_UPGRADE && mouseY < Y_UPGRADE + 20 && mouseX >= x && mouseX < panelX + PANEL_W - PAD - 62) {
 			int ix = x;
 			for (ItemStack stack : data.nextCost()) {
 				String count = Math.min(have(stack), 999) + "/" + stack.getCount();
-				int cell = 21 + textRenderer.getWidth(count);
+				int cell = 21 + font.width(count);
 				if (mouseX >= ix && mouseX < ix + cell) {
-					context.drawItemTooltip(textRenderer, stack, mouseX, mouseY);
+					context.renderTooltip(font, stack, mouseX, mouseY);
 					break;
 				}
 				ix += cell;
@@ -779,17 +779,17 @@ public class ObeliskScreen extends Screen {
 		}
 	}
 
-	private Text statusShort(Entry entry) {
+	private Component statusShort(Entry entry) {
 		if (entry.id().equals(data.sourceId())) {
-			return Text.translatable("ender_obelisks.menu.status_here");
+			return Component.translatable("ender_obelisks.menu.status_here");
 		} else if (!inRange(entry) && !sameDimension(entry)) {
-			return Text.translatable("ender_obelisks.menu.pill_dimension");
+			return Component.translatable("ender_obelisks.menu.pill_dimension");
 		} else if (!inRange(entry)) {
-			return Text.translatable("ender_obelisks.menu.pill_far");
+			return Component.translatable("ender_obelisks.menu.pill_far");
 		} else if (cooldownLeft() > 0) {
-			return Text.translatable("ender_obelisks.menu.pill_cooldown", (cooldownLeft() + 19) / 20);
+			return Component.translatable("ender_obelisks.menu.pill_cooldown", (cooldownLeft() + 19) / 20);
 		}
-		return Text.translatable("ender_obelisks.menu.status_ready");
+		return Component.translatable("ender_obelisks.menu.status_ready");
 	}
 
 	private int statusColor(Entry entry) {
@@ -804,31 +804,31 @@ public class ObeliskScreen extends Screen {
 	}
 
 	/** The full status sentence, for tooltips. */
-	private Text statusLine(Entry entry) {
+	private Component statusLine(Entry entry) {
 		if (entry.id().equals(data.sourceId())) {
-			return Text.translatable("ender_obelisks.menu.status_here").formatted(Formatting.GOLD);
+			return Component.translatable("ender_obelisks.menu.status_here").withStyle(ChatFormatting.GOLD);
 		} else if (!inRange(entry) && !sameDimension(entry)) {
-			return (data.crossDimension() ? Text.translatable("ender_obelisks.menu.status_dimension_tier", data.crossDimensionMinTier())
-					: Text.translatable("ender_obelisks.menu.status_dimension_off")).formatted(Formatting.RED);
+			return (data.crossDimension() ? Component.translatable("ender_obelisks.menu.status_dimension_tier", data.crossDimensionMinTier())
+					: Component.translatable("ender_obelisks.menu.status_dimension_off")).withStyle(ChatFormatting.RED);
 		} else if (!inRange(entry)) {
-			return Text.translatable("ender_obelisks.menu.status_far", data.range()).formatted(Formatting.RED);
+			return Component.translatable("ender_obelisks.menu.status_far", data.range()).withStyle(ChatFormatting.RED);
 		} else if (cooldownLeft() > 0) {
-			return Text.translatable("ender_obelisks.menu.status_cooldown", (cooldownLeft() + 19) / 20).formatted(Formatting.YELLOW);
+			return Component.translatable("ender_obelisks.menu.status_cooldown", (cooldownLeft() + 19) / 20).withStyle(ChatFormatting.YELLOW);
 		}
-		return Text.translatable("ender_obelisks.menu.status_ready").formatted(Formatting.GREEN);
+		return Component.translatable("ender_obelisks.menu.status_ready").withStyle(ChatFormatting.GREEN);
 	}
 
-	private List<Text> describe(Entry entry) {
-		List<Text> lines = new ArrayList<>();
-		lines.add(Text.literal(entry.name()).formatted(Formatting.BOLD));
-		lines.add(Text.translatable(entry.isPublic() ? "ender_obelisks.menu.owner_public" : "ender_obelisks.menu.owner_private",
-				entry.ownerName()).formatted(Formatting.GRAY));
+	private List<Component> describe(Entry entry) {
+		List<Component> lines = new ArrayList<>();
+		lines.add(Component.literal(entry.name()).withStyle(ChatFormatting.BOLD));
+		lines.add(Component.translatable(entry.isPublic() ? "ender_obelisks.menu.owner_public" : "ender_obelisks.menu.owner_private",
+				entry.ownerName()).withStyle(ChatFormatting.GRAY));
 		if (sameDimension(entry)) {
-			lines.add(Text.translatable("ender_obelisks.menu.where", entry.pos().getX(), entry.pos().getY(), entry.pos().getZ(),
-					(int) distance(entry)).formatted(Formatting.GRAY));
+			lines.add(Component.translatable("ender_obelisks.menu.where", entry.pos().getX(), entry.pos().getY(), entry.pos().getZ(),
+					(int) distance(entry)).withStyle(ChatFormatting.GRAY));
 		} else {
-			lines.add(Text.translatable("ender_obelisks.menu.where_dimension", entry.pos().getX(), entry.pos().getY(), entry.pos().getZ(),
-					dimensionName(entry.dimension())).formatted(Formatting.GRAY));
+			lines.add(Component.translatable("ender_obelisks.menu.where_dimension", entry.pos().getX(), entry.pos().getY(), entry.pos().getZ(),
+					dimensionName(entry.dimension())).withStyle(ChatFormatting.GRAY));
 		}
 		lines.add(statusLine(entry));
 		return lines;
@@ -848,10 +848,10 @@ public class ObeliskScreen extends Screen {
 		if (data.isOwner() && Math.abs(mouseY - SWATCH_Y) <= SWATCH_R + 1) {
 			for (int i = 0; i < ObeliskColors.RGB.length; i++) {
 				if (Math.abs(mouseX - swatchX(i)) <= SWATCH_R + 1) {
-					PacketByteBuf buf = PacketByteBufs.create();
+					FriendlyByteBuf buf = Network.create();
 					buf.writeBlockPos(data.sourcePos());
 					buf.writeVarInt(i);
-					ClientPlayNetworking.send(ObeliskPackets.SET_COLOR, buf);
+					Client.send(ObeliskPackets.SET_COLOR, buf);
 					return true;
 				}
 			}
@@ -904,7 +904,7 @@ public class ObeliskScreen extends Screen {
 			// Zoom around the cursor: the block under it stays under it
 			double wx = centerX + (mouseX - mapCenterX()) / scale;
 			double wz = centerZ + (mouseY - mapCenterY()) / scale;
-			scale = MathHelper.clamp(scale * (amount > 0 ? 1.25 : 0.8), MIN_SCALE, MAX_SCALE);
+			scale = Mth.clamp(scale * (amount > 0 ? 1.25 : 0.8), MIN_SCALE, MAX_SCALE);
 			centerX = wx - (mouseX - mapCenterX()) / scale;
 			centerZ = wz - (mouseY - mapCenterY()) / scale;
 			return true;
@@ -919,17 +919,17 @@ public class ObeliskScreen extends Screen {
 	/** Zoom so the whole range circle fits; used by the harness for its screenshots. */
 	public void zoomToRange() {
 		int size = Math.min(mapX1 - mapX0, mapY1 - mapY0);
-		scale = MathHelper.clamp(size / (data.range() * 2.3), MIN_SCALE, MAX_SCALE);
+		scale = Mth.clamp(size / (data.range() * 2.3), MIN_SCALE, MAX_SCALE);
 		centerX = data.sourcePos().getX() + 0.5;
 		centerZ = data.sourcePos().getZ() + 0.5;
 	}
 
 	public void zoomTo(double newScale) {
-		scale = MathHelper.clamp(newScale, MIN_SCALE, MAX_SCALE);
+		scale = Mth.clamp(newScale, MIN_SCALE, MAX_SCALE);
 	}
 
 	@Override
-	public boolean shouldPause() {
+	public boolean isPauseScreen() {
 		// The integrated server must keep running: it answers this menu's packets
 		return false;
 	}

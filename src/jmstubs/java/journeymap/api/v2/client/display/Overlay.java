@@ -3,11 +3,11 @@
 package journeymap.api.v2.client.display;
 
 import journeymap.api.v2.client.model.TextProperties;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public abstract class Overlay extends Displayable {
-	public Overlay setDimension(RegistryKey<World> dimension) {
+	public Overlay setDimension(ResourceKey<Level> dimension) {
 		throw new UnsupportedOperationException();
 	}
 

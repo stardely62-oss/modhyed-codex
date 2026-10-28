@@ -2,11 +2,11 @@ package euf.enderobelisks;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /** Range and upgrade cost per obelisk tier, from the server config. */
 public final class ObeliskTiers {
@@ -26,7 +26,7 @@ public final class ObeliskTiers {
 		}
 		List<ItemStack> cost = new ArrayList<>();
 		for (ObeliskConfig.Cost entry : ObeliskConfig.get().upgradeCosts.get(tier)) {
-			Item item = Registries.ITEM.get(Identifier.tryParse(entry.item == null ? "" : entry.item));
+			Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(entry.item == null ? "" : entry.item));
 			if (item != Items.AIR && entry.count > 0) {
 				cost.add(new ItemStack(item, entry.count));
 			}

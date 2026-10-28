@@ -12,11 +12,12 @@ import journeymap.api.v2.client.display.MarkerOverlay;
 import journeymap.api.v2.client.model.MapImage;
 import journeymap.api.v2.client.model.TextProperties;
 import journeymap.api.v2.common.JourneyMapPlugin;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Shows every obelisk you may use as a marker on JourneyMap's maps, in its colour, with its name.
@@ -25,7 +26,7 @@ import net.minecraft.util.Identifier;
  */
 @JourneyMapPlugin(apiVersion = "2.0.0")
 public class JourneyMapCompat implements IClientPlugin {
-	private static final Identifier ICON = EnderObelisks.id("textures/gui/map_marker.png");
+	private static final ResourceLocation ICON = EnderObelisks.id("textures/gui/map_marker.png");
 	/** How often to check that JourneyMap still has our markers (it drops overlays when the world changes). */
 	private static final int CHECK_TICKS = 100;
 
@@ -41,8 +42,8 @@ public class JourneyMapCompat implements IClientPlugin {
 	@Override
 	public void initialize(IClientAPI jmClientApi) {
 		this.api = jmClientApi;
-		ObeliskClientCache.addListener(() -> MinecraftClient.getInstance().execute(this::refresh));
-		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+		ObeliskClientCache.addListener(() -> Minecraft.getInstance().execute(this::refresh));
+		NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
 			if (++ticks % CHECK_TICKS == 0 && !shown.isEmpty() && !api.exists(shown.get(0))) {
 				refresh();
 			}
@@ -58,7 +59,7 @@ public class JourneyMapCompat implements IClientPlugin {
 			MapImage icon = new MapImage(ICON, 16, 16).setColor(rgb).setDisplayWidth(12).setDisplayHeight(12)
 					.setAnchorX(6).setAnchorY(6);
 			MarkerOverlay marker = new MarkerOverlay(EnderObelisks.MOD_ID, entry.pos(), icon);
-			marker.setDimension(RegistryKey.of(RegistryKeys.WORLD, entry.dimension()));
+			marker.setDimension(ResourceKey.create(Registries.DIMENSION, entry.dimension()));
 			marker.setLabel(entry.name());
 			marker.setTitle(entry.name() + " · " + entry.ownerName());
 			marker.setTextProperties(new TextProperties().setColor(rgb).setBackgroundOpacity(0.4f).setOffsetY(10));

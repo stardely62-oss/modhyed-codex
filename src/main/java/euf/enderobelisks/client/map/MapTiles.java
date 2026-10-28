@@ -1,12 +1,12 @@
 package euf.enderobelisks.client.map;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
 import org.jetbrains.annotations.Nullable;
 
 /** GPU textures for the map, one per 8x8 chunks (128x128 blocks, one pixel per block), rebuilt when a chunk changes. */
@@ -15,8 +15,8 @@ public final class MapTiles {
 	public static final int TILE_BLOCKS = TILE_CHUNKS * 16;
 
 	private static final class Tile {
-		NativeImageBackedTexture texture;
-		Identifier id;
+		DynamicTexture texture;
+		ResourceLocation id;
 		boolean dirty = true;
 		boolean empty = true;
 	}
@@ -27,7 +27,7 @@ public final class MapTiles {
 	}
 
 	public static void markDirty(int tileX, int tileZ) {
-		Tile tile = tiles.get(ChunkPos.toLong(tileX, tileZ));
+		Tile tile = tiles.get(ChunkPos.asLong(tileX, tileZ));
 		if (tile != null) {
 			tile.dirty = true;
 		}
@@ -35,8 +35,8 @@ public final class MapTiles {
 
 	/** The tile's texture, rebuilt from the cache if needed; null where nothing has been explored. Render thread only. */
 	@Nullable
-	public static Identifier get(MapCache cache, int tileX, int tileZ) {
-		Tile tile = tiles.computeIfAbsent(ChunkPos.toLong(tileX, tileZ), key -> new Tile());
+	public static ResourceLocation get(MapCache cache, int tileX, int tileZ) {
+		Tile tile = tiles.computeIfAbsent(ChunkPos.asLong(tileX, tileZ), key -> new Tile());
 		if (tile.dirty) {
 			tile.dirty = false;
 			rebuild(cache, tileX, tileZ, tile);
@@ -56,16 +56,16 @@ public final class MapTiles {
 			return;
 		}
 		if (tile.texture == null) {
-			tile.texture = new NativeImageBackedTexture(TILE_BLOCKS, TILE_BLOCKS, true);
-			tile.id = MinecraftClient.getInstance().getTextureManager().registerDynamicTexture("ender_obelisks_map", tile.texture);
+			tile.texture = new DynamicTexture(TILE_BLOCKS, TILE_BLOCKS, true);
+			tile.id = Minecraft.getInstance().getTextureManager().register("ender_obelisks_map", tile.texture);
 		}
-		NativeImage image = tile.texture.getImage();
+		NativeImage image = tile.texture.getPixels();
 		for (int i = 0; i < chunkColors.length; i++) {
 			int[] colors = chunkColors[i];
 			int baseX = (i % TILE_CHUNKS) * 16;
 			int baseZ = (i / TILE_CHUNKS) * 16;
 			for (int c = 0; c < 256; c++) {
-				image.setColor(baseX + (c & 15), baseZ + (c >> 4), colors == null ? 0 : argbToAbgr(colors[c]));
+				image.setPixelRGBA(baseX + (c & 15), baseZ + (c >> 4), colors == null ? 0 : argbToAbgr(colors[c]));
 			}
 		}
 		tile.texture.upload();
@@ -79,7 +79,7 @@ public final class MapTiles {
 	public static void clear() {
 		tiles.values().forEach(tile -> {
 			if (tile.id != null) {
-				MinecraftClient.getInstance().getTextureManager().destroyTexture(tile.id);
+				Minecraft.getInstance().getTextureManager().release(tile.id);
 			}
 		});
 		tiles.clear();

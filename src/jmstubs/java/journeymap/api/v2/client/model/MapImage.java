@@ -2,10 +2,10 @@
 // Only the members Ender Obelisks uses, with the exact signatures; never packaged.
 package journeymap.api.v2.client.model;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public final class MapImage {
-	public MapImage(Identifier imageLocation, int textureWidth, int textureHeight) {
+	public MapImage(ResourceLocation imageLocation, int textureWidth, int textureHeight) {
 		throw new UnsupportedOperationException();
 	}
 

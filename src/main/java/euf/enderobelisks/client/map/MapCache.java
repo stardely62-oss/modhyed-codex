@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.level.ChunkPos;
 
 /**
  * Explored-map colours of one world + dimension: one ARGB int per block column, 256 per chunk (index z * 16 + x).
@@ -33,17 +33,17 @@ public class MapCache {
 
 	public int[] get(int chunkX, int chunkZ) {
 		ensureLoaded(chunkX >> 5, chunkZ >> 5);
-		return chunks.get(ChunkPos.toLong(chunkX, chunkZ));
+		return chunks.get(ChunkPos.asLong(chunkX, chunkZ));
 	}
 
 	public void put(int chunkX, int chunkZ, int[] colors) {
 		ensureLoaded(chunkX >> 5, chunkZ >> 5);
-		chunks.put(ChunkPos.toLong(chunkX, chunkZ), colors);
-		dirtyRegions.add(ChunkPos.toLong(chunkX >> 5, chunkZ >> 5));
+		chunks.put(ChunkPos.asLong(chunkX, chunkZ), colors);
+		dirtyRegions.add(ChunkPos.asLong(chunkX >> 5, chunkZ >> 5));
 	}
 
 	private void ensureLoaded(int regionX, int regionZ) {
-		long key = ChunkPos.toLong(regionX, regionZ);
+		long key = ChunkPos.asLong(regionX, regionZ);
 		if (!loadedRegions.add(key)) {
 			return;
 		}
@@ -59,7 +59,7 @@ public class MapCache {
 				for (int c = 0; c < 256; c++) {
 					colors[c] = in.readInt();
 				}
-				chunks.put(ChunkPos.toLong((regionX << 5) + (local & 31), (regionZ << 5) + (local >> 5)), colors);
+				chunks.put(ChunkPos.asLong((regionX << 5) + (local & 31), (regionZ << 5) + (local >> 5)), colors);
 			}
 		} catch (IOException e) {
 			EnderObelisks.LOGGER.warn("Could not read map region {}", file, e);
@@ -68,14 +68,14 @@ public class MapCache {
 
 	public void save() {
 		for (long region : dirtyRegions) {
-			int regionX = ChunkPos.getPackedX(region);
-			int regionZ = ChunkPos.getPackedZ(region);
+			int regionX = ChunkPos.getX(region);
+			int regionZ = ChunkPos.getZ(region);
 			Path file = regionFile(regionX, regionZ);
 			try {
 				Files.createDirectories(dir);
 				Map<Integer, int[]> inRegion = new HashMap<>();
 				for (int local = 0; local < 1024; local++) {
-					int[] colors = chunks.get(ChunkPos.toLong((regionX << 5) + (local & 31), (regionZ << 5) + (local >> 5)));
+					int[] colors = chunks.get(ChunkPos.asLong((regionX << 5) + (local & 31), (regionZ << 5) + (local >> 5)));
 					if (colors != null) {
 						inRegion.put(local, colors);
 					}

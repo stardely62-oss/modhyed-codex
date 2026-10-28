@@ -3,22 +3,24 @@ package euf.enderobelisks.client.map;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.MapColor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.chunk.EmptyChunk;
-import net.minecraft.world.chunk.WorldChunk;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.EmptyLevelChunk;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.material.MapColor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,8 +45,8 @@ public final class MapScanner {
 	}
 
 	public static void register() {
-		ClientTickEvents.END_CLIENT_TICK.register(MapScanner::tick);
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(MapScanner::close));
+		NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> tick(Minecraft.getInstance()));
+		NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> Minecraft.getInstance().execute(MapScanner::close));
 	}
 
 	@Nullable
@@ -63,15 +65,15 @@ public final class MapScanner {
 		MapTiles.clear();
 	}
 
-	private static void tick(MinecraftClient client) {
-		ClientWorld world = client.world;
+	private static void tick(Minecraft client) {
+		ClientLevel world = client.level;
 		if (world == null || client.player == null) {
 			return;
 		}
-		String key = worldKey(client) + "/" + world.getRegistryKey().getValue().toString().replace(':', '_');
+		String key = worldKey(client) + "/" + world.dimension().location().toString().replace(':', '_');
 		if (!key.equals(cacheKey)) {
 			close();
-			cache = new MapCache(client.runDirectory.toPath().resolve("ender_obelisks_map").resolve(key));
+			cache = new MapCache(client.gameDirectory.toPath().resolve("ender_obelisks_map").resolve(key));
 			cacheKey = key;
 		}
 		ticks++;
@@ -82,74 +84,74 @@ public final class MapScanner {
 		for (int i = 0; i < CHUNKS_PER_TICK && it.hasNext(); i++) {
 			long packed = it.next();
 			it.remove();
-			scan(world, ChunkPos.getPackedX(packed), ChunkPos.getPackedZ(packed), client.player.getBlockY());
+			scan(world, ChunkPos.getX(packed), ChunkPos.getZ(packed), client.player.getBlockY());
 		}
 		if (ticks % SAVE_EVERY_TICKS == 0) {
 			cache.save();
 		}
 	}
 
-	private static void refillQueue(MinecraftClient client, ClientWorld world) {
-		ChunkPos center = client.player.getChunkPos();
-		int radius = client.options.getClampedViewDistance();
+	private static void refillQueue(Minecraft client, ClientLevel world) {
+		ChunkPos center = client.player.chunkPosition();
+		int radius = client.options.getEffectiveRenderDistance();
 		List<Long> candidates = new ArrayList<>();
 		for (int dz = -radius; dz <= radius; dz++) {
 			for (int dx = -radius; dx <= radius; dx++) {
 				int x = center.x + dx;
 				int z = center.z + dz;
-				long packed = ChunkPos.toLong(x, z);
+				long packed = ChunkPos.asLong(x, z);
 				Long last = lastScan.get(packed);
-				if ((last == null || ticks - last > RESCAN_TICKS) && world.getChunkManager().isChunkLoaded(x, z)) {
+				if ((last == null || ticks - last > RESCAN_TICKS) && world.getChunkSource().hasChunk(x, z)) {
 					candidates.add(packed);
 				}
 			}
 		}
 		candidates.sort(Comparator.comparingInt(p -> {
-			int dx = ChunkPos.getPackedX(p) - center.x;
-			int dz = ChunkPos.getPackedZ(p) - center.z;
+			int dx = ChunkPos.getX(p) - center.x;
+			int dz = ChunkPos.getZ(p) - center.z;
 			return dx * dx + dz * dz;
 		}));
 		queue.addAll(candidates);
 	}
 
-	private static void scan(ClientWorld world, int chunkX, int chunkZ, int playerY) {
-		WorldChunk chunk = world.getChunk(chunkX, chunkZ);
-		if (chunk instanceof EmptyChunk || chunk.isEmpty()) {
+	private static void scan(ClientLevel world, int chunkX, int chunkZ, int playerY) {
+		LevelChunk chunk = world.getChunk(chunkX, chunkZ);
+		if (chunk instanceof EmptyLevelChunk || chunk.isEmpty()) {
 			return;
 		}
-		lastScan.put(ChunkPos.toLong(chunkX, chunkZ), ticks);
-		boolean ceiling = world.getDimension().hasCeiling();
-		int bottom = world.getBottomY();
+		lastScan.put(ChunkPos.asLong(chunkX, chunkZ), ticks);
+		boolean ceiling = world.dimensionType().hasCeiling();
+		int bottom = world.getMinBuildHeight();
 		int[] heights = new int[256];
 		int[] colors = new int[256];
-		BlockPos.Mutable pos = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
 		for (int lz = 0; lz < 16; lz++) {
 			for (int lx = 0; lx < 16; lx++) {
 				int x = (chunkX << 4) + lx;
 				int z = (chunkZ << 4) + lz;
-				int y = ceiling ? floorBelow(chunk, pos, x, z, Math.min(playerY + 8, world.getTopY() - 1), bottom)
-						: chunk.sampleHeightmap(Heightmap.Type.WORLD_SURFACE, lx, lz);
+				int y = ceiling ? floorBelow(chunk, pos, x, z, Math.min(playerY + 8, world.getMaxBuildHeight() - 1), bottom)
+						: chunk.getHeight(Heightmap.Types.WORLD_SURFACE, lx, lz);
 
 				// Step down through blocks maps don't draw (glass, air, ...)
 				BlockState state = chunk.getBlockState(pos.set(x, y, z));
 				MapColor color = state.getMapColor(world, pos);
-				for (int steps = 0; color == MapColor.CLEAR && y > bottom && steps < 16; steps++) {
+				for (int steps = 0; color == MapColor.NONE && y > bottom && steps < 16; steps++) {
 					y--;
 					state = chunk.getBlockState(pos.set(x, y, z));
 					color = state.getMapColor(world, pos);
 				}
 				int i = lz * 16 + lx;
 				heights[i] = y;
-				if (color == MapColor.CLEAR) {
+				if (color == MapColor.NONE) {
 					colors[i] = 0xFF000000;
 					continue;
 				}
 
 				int brightness;
-				if (state.getFluidState().isIn(FluidTags.WATER)) {
+				if (state.getFluidState().is(FluidTags.WATER)) {
 					int depth = 0;
-					while (depth < 10 && chunk.getBlockState(pos.set(x, y - depth - 1, z)).getFluidState().isIn(FluidTags.WATER)) {
+					while (depth < 10 && chunk.getBlockState(pos.set(x, y - depth - 1, z)).getFluidState().is(FluidTags.WATER)) {
 						depth++;
 					}
 					brightness = depth >= 7 ? 180 : depth >= 3 ? 220 : 255;
@@ -157,7 +159,7 @@ public final class MapScanner {
 					int north = lz > 0 ? heights[i - 16] : y;
 					brightness = y > north ? 255 : y < north ? 180 : 220;
 				}
-				colors[i] = shade(color.color, brightness);
+				colors[i] = shade(color.col, brightness);
 			}
 		}
 		cache.put(chunkX, chunkZ, colors);
@@ -165,7 +167,7 @@ public final class MapScanner {
 	}
 
 	/** In dimensions with a roof (the Nether), the first floor below the player's height instead of the roof. */
-	private static int floorBelow(WorldChunk chunk, BlockPos.Mutable pos, int x, int z, int start, int bottom) {
+	private static int floorBelow(LevelChunk chunk, BlockPos.MutableBlockPos pos, int x, int z, int start, int bottom) {
 		boolean seenAir = false;
 		for (int y = start; y > bottom && y > start - 96; y--) {
 			if (chunk.getBlockState(pos.set(x, y, z)).isAir()) {
@@ -184,13 +186,13 @@ public final class MapScanner {
 		return 0xFF000000 | (r << 16) | (g << 8) | b;
 	}
 
-	private static String worldKey(MinecraftClient client) {
+	private static String worldKey(Minecraft client) {
 		String raw;
-		if (client.isIntegratedServerRunning() && client.getServer() != null) {
-			raw = "sp_" + client.getServer().getSaveProperties().getLevelName();
+		if (client.hasSingleplayerServer() && client.getSingleplayerServer() != null) {
+			raw = "sp_" + client.getSingleplayerServer().getWorldData().getLevelName();
 		} else {
-			ServerInfo server = client.getCurrentServerEntry();
-			raw = "mp_" + (server != null ? server.address : "unknown");
+			ServerData server = client.getCurrentServer();
+			raw = "mp_" + (server != null ? server.ip : "unknown");
 		}
 		return raw.replaceAll("[^A-Za-z0-9._-]", "_");
 	}

@@ -1,23 +1,25 @@
 package euf.enderobelisks;
 
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.sound.SoundEvent;
+import java.util.function.Supplier;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.sounds.SoundEvent;
 
 /** Sound events of the obelisk. They reuse vanilla recordings at other pitches (assets/ender_obelisks/sounds.json). */
 public final class ObeliskSounds {
-	public static final SoundEvent HUM = register("obelisk.hum");
-	public static final SoundEvent PLACE = register("obelisk.place");
-	public static final SoundEvent CHANNEL = register("obelisk.channel");
-	public static final SoundEvent TELEPORT = register("obelisk.teleport");
-	public static final SoundEvent CANCEL = register("obelisk.cancel");
-	public static final SoundEvent UPGRADE = register("obelisk.upgrade");
+ public static final DeferredRegister<SoundEvent> REGISTER = DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, EnderObelisks.MOD_ID);
+	public static final Supplier<SoundEvent> HUM = register("obelisk.hum");
+	public static final Supplier<SoundEvent> PLACE = register("obelisk.place");
+	public static final Supplier<SoundEvent> CHANNEL = register("obelisk.channel");
+	public static final Supplier<SoundEvent> TELEPORT = register("obelisk.teleport");
+	public static final Supplier<SoundEvent> CANCEL = register("obelisk.cancel");
+	public static final Supplier<SoundEvent> UPGRADE = register("obelisk.upgrade");
 
 	private ObeliskSounds() {
 	}
 
-	private static SoundEvent register(String name) {
-		return Registry.register(Registries.SOUND_EVENT, EnderObelisks.id(name), SoundEvent.of(EnderObelisks.id(name)));
+	private static Supplier<SoundEvent> register(String name) {
+		return REGISTER.register(name, () -> SoundEvent.createVariableRangeEvent(EnderObelisks.id(name)));
 	}
 
 	/** Forces class loading from the mod initializer, so the events are registered in time. */

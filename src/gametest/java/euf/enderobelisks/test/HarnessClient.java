@@ -22,32 +22,33 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.advancement.Advancement;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.ScreenshotRecorder;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
+import net.minecraft.advancements.Advancement;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +61,7 @@ import org.slf4j.LoggerFactory;
 public class HarnessClient implements ClientModInitializer {
 	private static final Logger LOGGER = LoggerFactory.getLogger("ender_obelisks-harness");
 
-	private record Step(int waitAfter, boolean needsTerrain, Consumer<MinecraftClient> action) {}
+	private record Step(int waitAfter, boolean needsTerrain, Consumer<Minecraft> action) {}
 
 	private final Deque<Step> steps = new ArrayDeque<>();
 	private final List<String> results = new ArrayList<>();
@@ -85,8 +86,8 @@ public class HarnessClient implements ClientModInitializer {
 					"gamerule doMobSpawning false", "time set 1000", "weather clear", "gamemode creative @a",
 					"give @a ender_obelisks:obelisk 4");
 			onServer(c, server -> {
-				ServerWorld world = server.getOverworld();
-				BlockPos spawn = world.getSpawnPos();
+				ServerLevel world = server.overworld();
+				BlockPos spawn = world.getSharedSpawnPos();
 				home = prepareSite(world, spawn.getX() + 4, spawn.getZ());
 				village = prepareSite(world, home.getX() + 300, home.getZ() + 40);
 				outpost = prepareSite(world, home.getX() + 1400, home.getZ() - 300);
@@ -98,36 +99,36 @@ public class HarnessClient implements ClientModInitializer {
 		// Stand west of the home site looking east, then place the obelisk with a real click on the ground
 		step(40, true, c -> {
 			c.player.getAbilities().flying = false;
-			tp(c, Vec3d.ofBottomCenter(home).add(-2.5, 0, 0), Vec3d.ofCenter(home));
+			tp(c, Vec3.atBottomCenterOf(home).add(-2.5, 0, 0), Vec3.atCenterOf(home));
 		});
 		step(20, false, c -> {
 			check("obelisk_item_in_hotbar", select(c));
-			for (Item item : List.of(EnderObelisks.OBELISK_ITEM, EnderObelisks.RUINED_OBELISK_ITEM, EnderObelisks.TIME_SHARD, EnderObelisks.RETURN_SHARD)) {
-				List<Text> tooltip = new ItemStack(item).getTooltip(c.player, TooltipContext.BASIC);
-				String key = "ender_obelisks.lore." + Registries.ITEM.getId(item).getPath() + ".1";
-				check("lore_" + Registries.ITEM.getId(item).getPath(), tooltip.size() > 1
-						&& tooltip.get(1).getContent() instanceof TranslatableTextContent t && t.getKey().equals(key));
+			for (Item item : List.of(EnderObelisks.OBELISK_ITEM.get(), EnderObelisks.RUINED_OBELISK_ITEM.get(), EnderObelisks.TIME_SHARD.get(), EnderObelisks.RETURN_SHARD.get())) {
+				List<Component> tooltip = new ItemStack(item).getTooltipLines(c.player, TooltipFlag.NORMAL);
+				String key = "ender_obelisks.lore." + BuiltInRegistries.ITEM.getKey(item).getPath() + ".1";
+				check("lore_" + BuiltInRegistries.ITEM.getKey(item).getPath(), tooltip.size() > 1
+						&& tooltip.get(1).getContents() instanceof TranslatableContents t && t.getKey().equals(key));
 			}
 		});
 		step(20, false, c -> {
-			BlockPos ground = home.down();
-			BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(ground).add(0, 0.5, 0), Direction.UP, ground, false);
-			check("place_click_accepted", c.interactionManager.interactBlock(c.player, Hand.MAIN_HAND, hit).isAccepted());
+			BlockPos ground = home.below();
+			BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(ground).add(0, 0.5, 0), Direction.UP, ground, false);
+			check("place_click_accepted", c.gameMode.useItemOn(c.player, InteractionHand.MAIN_HAND, hit).consumesAction());
 		});
 		step(20, false, c -> {
-			UUID me = c.player.getUuid();
-			check("placed_two_halves", onServer(c, s -> s.getOverworld().getBlockState(home).isOf(EnderObelisks.OBELISK)
-					&& s.getOverworld().getBlockState(home.up()).isOf(EnderObelisks.OBELISK)));
-			check("registered_with_owner", onServer(c, s -> ObeliskService.at(s.getOverworld(), home)
+			UUID me = c.player.getUUID();
+			check("placed_two_halves", onServer(c, s -> s.overworld().getBlockState(home).is(EnderObelisks.OBELISK.get())
+					&& s.overworld().getBlockState(home.above()).is(EnderObelisks.OBELISK.get())));
+			check("registered_with_owner", onServer(c, s -> ObeliskService.at(s.overworld(), home)
 					.map(o -> o.owner.equals(me)).orElse(false)));
 			check("advancement_place", advancementDone(c, "place_obelisk"));
 			// The rest of the network: a public village in range, a public outpost out of range,
 			// my own private hideout, and someone else's private obelisk that must stay hidden
 			onServer(c, s -> {
-				ServerWorld world = s.getOverworld();
+				ServerLevel world = s.overworld();
 				build(world, village, null, "Деревня", "Steve", true);
 				build(world, outpost, null, "Далёкий форпост", "Alex", true);
-				build(world, hideout, c.player.getUuid(), "Мой тайник", c.player.getGameProfile().getName(), false);
+				build(world, hideout, c.player.getUUID(), "Мой тайник", c.player.getGameProfile().getName(), false);
 				build(world, secret, UUID.randomUUID(), "Чужой секрет", "Notch", false);
 				return null;
 			});
@@ -135,19 +136,19 @@ public class HarnessClient implements ClientModInitializer {
 
 		// The model by day: the eye watches the player, so the pupil looks into the camera
 		step(60, true, c -> {
-			c.options.hudHidden = true;
-			tp(c, Vec3d.ofBottomCenter(home).add(-3.2, 0, 0.6), Vec3d.ofBottomCenter(home).add(0, 1.2, 0));
+			c.options.hideGui = true;
+			tp(c, Vec3.atBottomCenterOf(home).add(-3.2, 0, 0.6), Vec3.atBottomCenterOf(home).add(0, 1.2, 0));
 		});
 		step(40, true, c -> screenshot(c, "obelisk_front"));
 		// Cameras sit off the diagonals: on a diagonal a corner bar of the cage hides the pupil
-		step(40, false, c -> fly(c, Vec3d.ofBottomCenter(home).add(-2.0, 0.7, -0.8), Vec3d.ofBottomCenter(home).add(0, 1.6, 0)));
+		step(40, false, c -> fly(c, Vec3.atBottomCenterOf(home).add(-2.0, 0.7, -0.8), Vec3.atBottomCenterOf(home).add(0, 1.6, 0)));
 		step(30, true, c -> screenshot(c, "obelisk_cage"));
 		// Walk around it: the eye should have turned to follow
-		step(40, false, c -> fly(c, Vec3d.ofBottomCenter(home).add(0.9, 0.5, 2.4), Vec3d.ofBottomCenter(home).add(0, 1.6, 0)));
+		step(40, false, c -> fly(c, Vec3.atBottomCenterOf(home).add(0.9, 0.5, 2.4), Vec3.atBottomCenterOf(home).add(0, 1.6, 0)));
 		step(30, true, c -> screenshot(c, "obelisk_eye_follows"));
 		step(30, false, c -> {
 			commands(c, "time set 18000");
-			fly(c, Vec3d.ofBottomCenter(home).add(-3.5, 0.4, 1.5), Vec3d.ofBottomCenter(home).add(0, 1.2, 0));
+			fly(c, Vec3.atBottomCenterOf(home).add(-3.5, 0.4, 1.5), Vec3.atBottomCenterOf(home).add(0, 1.2, 0));
 		});
 		step(60, true, c -> screenshot(c, "obelisk_night"));
 
@@ -155,9 +156,9 @@ public class HarnessClient implements ClientModInitializer {
 		step(20, false, c -> {
 			commands(c, "time set 1000");
 			c.player.getAbilities().flying = false;
-			c.player.sendAbilitiesUpdate();
-			c.options.hudHidden = false;
-			tp(c, Vec3d.ofBottomCenter(home).add(-2.5, 0, 0.5), Vec3d.ofCenter(home));
+			c.player.onUpdateAbilities();
+			c.options.hideGui = false;
+			tp(c, Vec3.atBottomCenterOf(home).add(-2.5, 0, 0.5), Vec3.atCenterOf(home));
 		});
 		step(40, true, c -> rightClick(c, home));
 		step(40, false, c -> {
@@ -181,7 +182,7 @@ public class HarnessClient implements ClientModInitializer {
 				screen.teleportSelected();
 			}
 		});
-		step(40, false, c -> check("too_far_refused", c.player.getPos().isInRange(Vec3d.ofCenter(home), 6)));
+		step(40, false, c -> check("too_far_refused", c.player.position().closerThan(Vec3.atCenterOf(home), 6)));
 
 		// Start a jump, then step away during the warmup: it must break off
 		step(10, false, c -> selectByName(c, "Деревня"));
@@ -192,10 +193,10 @@ public class HarnessClient implements ClientModInitializer {
 			}
 		});
 		// Checked well after the warmup would have ended (20 + 60 ticks > 3 s), so a jump that wasn't broken off shows
-		step(60, false, c -> tp(c, Vec3d.ofBottomCenter(home).add(-2.5, 0, 2.0), Vec3d.ofCenter(home)));
+		step(60, false, c -> tp(c, Vec3.atBottomCenterOf(home).add(-2.5, 0, 2.0), Vec3.atCenterOf(home)));
 		step(10, false, c -> {
-			check("moving_breaks_the_jump", c.player.getPos().isInRange(Vec3d.ofCenter(home), 6));
-			tp(c, Vec3d.ofBottomCenter(home).add(-2.5, 0, 0.5), Vec3d.ofCenter(home));
+			check("moving_breaks_the_jump", c.player.position().closerThan(Vec3.atCenterOf(home), 6));
+			tp(c, Vec3.atBottomCenterOf(home).add(-2.5, 0, 0.5), Vec3.atCenterOf(home));
 		});
 		step(20, false, c -> rightClick(c, home));
 
@@ -209,19 +210,19 @@ public class HarnessClient implements ClientModInitializer {
 			}
 		});
 		step(20, true, c -> {
-			check("teleported_to_village", c.player.getPos().isInRange(Vec3d.ofCenter(village), 4));
+			check("teleported_to_village", c.player.position().closerThan(Vec3.atCenterOf(village), 4));
 			check("advancement_first_jump", advancementDone(c, "first_jump"));
 			check("no_far_jump_yet", !advancementDone(c, "far_jump"));
-			c.options.hudHidden = true;
+			c.options.hideGui = true;
 			// Step back a little and face the village obelisk: it should be looking at us
-			tp(c, c.player.getPos().add(c.player.getPos().subtract(Vec3d.ofBottomCenter(village)).normalize().multiply(1.5)),
-					Vec3d.ofBottomCenter(village).add(0, 1.3, 0));
+			tp(c, c.player.position().add(c.player.position().subtract(Vec3.atBottomCenterOf(village)).normalize().scale(1.5)),
+					Vec3.atBottomCenterOf(village).add(0, 1.3, 0));
 		});
 		step(30, true, c -> screenshot(c, "arrived"));
 		// Straight back is refused: the cooldown is running. The village is not mine, so no upgrades there either.
 		step(10, false, c -> {
-			c.options.hudHidden = false;
-			look(c, Vec3d.ofCenter(village));
+			c.options.hideGui = false;
+			look(c, Vec3.atCenterOf(village));
 		});
 		step(10, false, c -> rightClick(c, village));
 		step(30, false, c -> {
@@ -233,16 +234,16 @@ public class HarnessClient implements ClientModInitializer {
 			}
 		});
 		step(40, false, c -> {
-			check("cooldown_blocks_jump", c.player.getPos().isInRange(Vec3d.ofCenter(village), 4));
+			check("cooldown_blocks_jump", c.player.position().closerThan(Vec3.atCenterOf(village), 4));
 			ObeliskScreen screen = screen(c);
 			if (screen != null) {
 				screen.upgrade();
 			}
 		});
 		step(30, false, c -> {
-			check("stranger_cannot_upgrade", onServer(c, s -> ObeliskService.at(s.getOverworld(), village).map(o -> o.tier == 0).orElse(false)));
+			check("stranger_cannot_upgrade", onServer(c, s -> ObeliskService.at(s.overworld(), village).map(o -> o.tier == 0).orElse(false)));
 			onServer(c, s -> {
-				ObeliskService.clearCooldown(s.getPlayerManager().getPlayer(c.player.getUuid()));
+				ObeliskService.clearCooldown(s.getPlayerList().getPlayer(c.player.getUUID()));
 				return null;
 			});
 		});
@@ -253,10 +254,10 @@ public class HarnessClient implements ClientModInitializer {
 				screen.teleportSelected();
 			}
 		});
-		step(20, true, c -> check("teleported_home", c.player.getPos().isInRange(Vec3d.ofCenter(home), 4)));
+		step(20, true, c -> check("teleported_home", c.player.position().closerThan(Vec3.atCenterOf(home), 4)));
 
 		// Home is mine: rename, toggle access, upgrade to the top tier (free in creative)
-		step(10, false, c -> look(c, Vec3d.ofCenter(home)));
+		step(10, false, c -> look(c, Vec3.atCenterOf(home)));
 		step(10, false, c -> {
 			sendRename(c, home, "Дом");
 			sendSimple(c, ObeliskPackets.TOGGLE_PUBLIC, home);
@@ -266,26 +267,26 @@ public class HarnessClient implements ClientModInitializer {
 			List<String> synced = ObeliskClientCache.entries().stream().map(ObeliskSync.Entry::name).toList();
 			check("client_list_synced", synced.containsAll(List.of("Деревня", "Далёкий форпост", "Мой тайник")) && !synced.contains("Чужой секрет"));
 			sendColor(c, home, 4);
-			check("renamed", onServer(c, s -> ObeliskService.at(s.getOverworld(), home).map(o -> o.name.equals("Дом")).orElse(false)));
-			check("made_private", onServer(c, s -> ObeliskService.at(s.getOverworld(), home).map(o -> !o.isPublic).orElse(false)));
+			check("renamed", onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> o.name.equals("Дом")).orElse(false)));
+			check("made_private", onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> !o.isPublic).orElse(false)));
 			sendSimple(c, ObeliskPackets.TOGGLE_PUBLIC, home);
 			for (int i = 0; i < 5; i++) {
 				sendSimple(c, ObeliskPackets.UPGRADE, home);
 			}
 		});
 		step(30, false, c -> {
-			check("upgraded_to_max", onServer(c, s -> ObeliskService.at(s.getOverworld(), home).map(o -> o.tier == 4 && o.isPublic).orElse(false)));
+			check("upgraded_to_max", onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> o.tier == 4 && o.isPublic).orElse(false)));
 			check("advancement_max_tier", advancementDone(c, "max_tier"));
-			check("colour_set", onServer(c, s -> ObeliskService.at(s.getOverworld(), home).map(o -> o.color == 4).orElse(false)));
-			if (c.currentScreen != null) {
-				c.currentScreen.close();
+			check("colour_set", onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> o.color == 4).orElse(false)));
+			if (c.screen != null) {
+				c.screen.onClose();
 			}
-			c.options.hudHidden = true;
-			tp(c, Vec3d.ofBottomCenter(home).add(-3.2, 0, 0.6), Vec3d.ofBottomCenter(home).add(0, 1.2, 0));
+			c.options.hideGui = true;
+			tp(c, Vec3.atBottomCenterOf(home).add(-3.2, 0, 0.6), Vec3.atBottomCenterOf(home).add(0, 1.2, 0));
 		});
 		step(40, true, c -> screenshot(c, "obelisk_tier4"));
 		step(10, false, c -> {
-			c.options.hudHidden = false;
+			c.options.hideGui = false;
 			rightClick(c, home);
 		});
 		step(30, false, c -> {
@@ -307,27 +308,27 @@ public class HarnessClient implements ClientModInitializer {
 		step(20, false, c -> screenshot(c, "menu_zoomed"));
 		// A ruin, placed the way world generation would; find its ruined obelisk, photograph it, restore it with a real click
 		step(10, false, c -> {
-			if (c.currentScreen != null) {
-				c.currentScreen.close();
+			if (c.screen != null) {
+				c.screen.onClose();
 			}
-			BlockPos at = home.add(14, 0, 10);
+			BlockPos at = home.offset(14, 0, 10);
 			commands(c, "place structure ender_obelisks:ruined_obelisk " + at.getX() + " " + at.getY() + " " + at.getZ(),
 					"give @a ender_obelisks:time_shard 2");
 		});
 		step(20, false, c -> {
 			ruin = onServer(c, s -> {
 				// /place snaps the structure to its chunk and the surface, so search a generous box around the spot
-				for (BlockPos p : BlockPos.iterate(home.add(-16, -24, -16), home.add(40, 24, 36))) {
-					if (s.getOverworld().getBlockState(p).isOf(EnderObelisks.RUINED_OBELISK)) {
-						return p.toImmutable();
+				for (BlockPos p : BlockPos.betweenClosed(home.offset(-16, -24, -16), home.offset(40, 24, 36))) {
+					if (s.overworld().getBlockState(p).is(EnderObelisks.RUINED_OBELISK.get())) {
+						return p.immutable();
 					}
 				}
 				return null;
 			});
 			check("ruin_placed", ruin != null);
 			if (ruin != null) {
-				c.options.hudHidden = true;
-				tp(c, Vec3d.ofBottomCenter(ruin).add(-3.5, 0.5, -2.5), Vec3d.ofCenter(ruin));
+				c.options.hideGui = true;
+				tp(c, Vec3.atBottomCenterOf(ruin).add(-3.5, 0.5, -2.5), Vec3.atCenterOf(ruin));
 			}
 		});
 		step(40, true, c -> screenshot(c, "ruin"));
@@ -335,13 +336,13 @@ public class HarnessClient implements ClientModInitializer {
 			if (ruin == null) {
 				return;
 			}
-			c.options.hudHidden = false;
-			tp(c, Vec3d.ofBottomCenter(ruin).add(-2.0, 0, 0.5), Vec3d.ofCenter(ruin));
+			c.options.hideGui = false;
+			tp(c, Vec3.atBottomCenterOf(ruin).add(-2.0, 0, 0.5), Vec3.atCenterOf(ruin));
 		});
 		step(20, false, c -> {
 			for (int i = 0; i < 9; i++) {
-				if (c.player.getInventory().getStack(i).isOf(EnderObelisks.TIME_SHARD)) {
-					c.player.getInventory().selectedSlot = i;
+				if (c.player.getInventory().getItem(i).is(EnderObelisks.TIME_SHARD.get())) {
+					c.player.getInventory().selected = i;
 				}
 			}
 		});
@@ -351,52 +352,52 @@ public class HarnessClient implements ClientModInitializer {
 			}
 		});
 		step(30, false, c -> {
-			UUID me = c.player.getUuid();
-			check("ruin_restored", ruin != null && onServer(c, s -> s.getOverworld().getBlockState(ruin).isOf(EnderObelisks.OBELISK)
-					&& ObeliskService.at(s.getOverworld(), ruin).map(o -> o.owner.equals(me)).orElse(false)));
+			UUID me = c.player.getUUID();
+			check("ruin_restored", ruin != null && onServer(c, s -> s.overworld().getBlockState(ruin).is(EnderObelisks.OBELISK.get())
+					&& ObeliskService.at(s.overworld(), ruin).map(o -> o.owner.equals(me)).orElse(false)));
 			check("advancement_restore_ruin", advancementDone(c, "restore_ruin"));
-			c.options.hudHidden = true;
+			c.options.hideGui = true;
 			if (ruin != null) {
-				tp(c, Vec3d.ofBottomCenter(ruin).add(-3.5, 0.5, -2.5), Vec3d.ofBottomCenter(ruin).add(0, 1.2, 0));
+				tp(c, Vec3.atBottomCenterOf(ruin).add(-3.5, 0.5, -2.5), Vec3.atBottomCenterOf(ruin).add(0, 1.2, 0));
 			}
 		});
 		step(40, true, c -> screenshot(c, "ruin_restored"));
 
 		// The return shard the way a player uses it: sneak + right click the obelisk to bind, walk off, hold right click
 		step(10, false, c -> {
-			c.options.hudHidden = false;
+			c.options.hideGui = false;
 			commands(c, "gamemode survival @a", "effect give @a minecraft:resistance 120 4 true", "give @a ender_obelisks:return_shard 1");
-			tp(c, Vec3d.ofBottomCenter(home).add(-2.5, 0, 0.5), Vec3d.ofCenter(home));
+			tp(c, Vec3.atBottomCenterOf(home).add(-2.5, 0, 0.5), Vec3.atCenterOf(home));
 		});
 		step(10, false, c -> {
-			check("shard_in_hotbar", selectItem(c, EnderObelisks.RETURN_SHARD));
-			c.options.sneakKey.setPressed(true);
+			check("shard_in_hotbar", selectItem(c, EnderObelisks.RETURN_SHARD.get()));
+			c.options.keyShift.setDown(true);
 		});
 		step(10, false, c -> rightClick(c, home));
 		step(10, false, c -> {
-			c.options.sneakKey.setPressed(false);
-			UUID homeId = onServer(c, s -> ObeliskService.at(s.getOverworld(), home).map(o -> o.id).orElse(null));
-			ItemStack held = c.player.getMainHandStack();
-			NbtCompound bound = held.getSubNbt("Obelisk");
-			LOGGER.info("shard after binding: {} nbt {}", held, held.getNbt());
-			check("shard_bound", bound != null && homeId != null && bound.containsUuid("id") && bound.getUuid("id").equals(homeId));
+			c.options.keyShift.setDown(false);
+			UUID homeId = onServer(c, s -> ObeliskService.at(s.overworld(), home).map(o -> o.id).orElse(null));
+			ItemStack held = c.player.getMainHandItem();
+			CompoundTag bound = held.getTagElement("Obelisk");
+			LOGGER.info("shard after binding: {} nbt {}", held, held.getTag());
+			check("shard_bound", bound != null && homeId != null && bound.hasUUID("id") && bound.getUUID("id").equals(homeId));
 		});
-		step(20, true, c -> tp(c, Vec3d.ofBottomCenter(home).add(60.5, 0, 0.5), Vec3d.ofBottomCenter(home).add(60.5, 30, 0.5)));
+		step(20, true, c -> tp(c, Vec3.atBottomCenterOf(home).add(60.5, 0, 0.5), Vec3.atBottomCenterOf(home).add(60.5, 30, 0.5)));
 		step(10, false, c -> {
 			// A real right click held down: one press, then the key stays down
-			KeyBinding.onKeyPressed(c.options.useKey.getDefaultKey());
-			c.options.useKey.setPressed(true);
+			KeyMapping.click(c.options.keyUse.getDefaultKey());
+			c.options.keyUse.setDown(true);
 		});
 		// The shard needs returnShardSeconds (5 s) of holding; the wait after this step covers it with room to spare
 		step(120, false, c -> {
-			LOGGER.info("shard hold: using={} item={} left={}", c.player.isUsingItem(), c.player.getActiveItem(), c.player.getItemUseTimeLeft());
-			check("shard_channeling", c.player.isUsingItem() && c.player.getActiveItem().isOf(EnderObelisks.RETURN_SHARD));
+			LOGGER.info("shard hold: using={} item={} left={}", c.player.isUsingItem(), c.player.getUseItem(), c.player.getUseItemRemainingTicks());
+			check("shard_channeling", c.player.isUsingItem() && c.player.getUseItem().is(EnderObelisks.RETURN_SHARD.get()));
 		});
 		step(20, false, c -> {
-			c.options.useKey.setPressed(false);
-			LOGGER.info("after the hold: at {} home {} hand {}", c.player.getBlockPos(), home, c.player.getMainHandStack());
-			check("shard_returned_home", c.player.getPos().isInRange(Vec3d.ofCenter(home), 4));
-			check("shard_used_up", c.player.getInventory().count(EnderObelisks.RETURN_SHARD) == 0);
+			c.options.keyUse.setDown(false);
+			LOGGER.info("after the hold: at {} home {} hand {}", c.player.blockPosition(), home, c.player.getMainHandItem());
+			check("shard_returned_home", c.player.position().closerThan(Vec3.atCenterOf(home), 4));
+			check("shard_used_up", c.player.getInventory().countItem(EnderObelisks.RETURN_SHARD.get()) == 0);
 		});
 		step(40, false, this::finish);
 
@@ -406,22 +407,22 @@ public class HarnessClient implements ClientModInitializer {
 	// ---- server-side helpers (run on the integrated server thread) ----
 
 	/** A 7x7 polished deepslate pad on the surface with room above it; returns the block above the pad's centre. */
-	private static BlockPos prepareSite(ServerWorld world, int x, int z) {
+	private static BlockPos prepareSite(ServerLevel world, int x, int z) {
 		// Heightmaps of unloaded chunks read as the bottom of the world: generate the chunk first
 		world.getChunk(x >> 4, z >> 4);
-		BlockPos top = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
+		BlockPos top = world.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
 		for (int dx = -3; dx <= 3; dx++) {
 			for (int dz = -3; dz <= 3; dz++) {
-				world.setBlockState(top.add(dx, -1, dz), Blocks.POLISHED_DEEPSLATE.getDefaultState());
+				world.setBlockAndUpdate(top.offset(dx, -1, dz), Blocks.POLISHED_DEEPSLATE.defaultBlockState());
 				for (int dy = 0; dy < 4; dy++) {
-					world.setBlockState(top.add(dx, dy, dz), Blocks.AIR.getDefaultState());
+					world.setBlockAndUpdate(top.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
 				}
 			}
 		}
 		return top;
 	}
 
-	private static void build(ServerWorld world, BlockPos lower, UUID owner, String name, String ownerName, boolean isPublic) {
+	private static void build(ServerLevel world, BlockPos lower, UUID owner, String name, String ownerName, boolean isPublic) {
 		ObeliskGameTests.setObelisk(world, lower, Direction.WEST);
 		ObeliskInfo registered = ObeliskService.register(world, lower, null, name);
 		ObeliskInfo info = owner == null ? registered
@@ -431,15 +432,15 @@ public class HarnessClient implements ClientModInitializer {
 		ObeliskRegistry.get(world.getServer()).put(info);
 	}
 
-	private static <T> T onServer(MinecraftClient client, Function<MinecraftServer, T> action) {
-		MinecraftServer server = client.getServer();
+	private static <T> T onServer(Minecraft client, Function<MinecraftServer, T> action) {
+		MinecraftServer server = client.getSingleplayerServer();
 		return server.submit(() -> action.apply(server)).join();
 	}
 
-	private static void commands(MinecraftClient client, String... commands) {
+	private static void commands(Minecraft client, String... commands) {
 		onServer(client, server -> {
 			for (String command : commands) {
-				server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
+				server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command);
 			}
 			return null;
 		});
@@ -447,12 +448,12 @@ public class HarnessClient implements ClientModInitializer {
 
 	// ---- client-side helpers ----
 
-	private void step(int waitAfter, boolean needsTerrain, Consumer<MinecraftClient> action) {
+	private void step(int waitAfter, boolean needsTerrain, Consumer<Minecraft> action) {
 		steps.add(new Step(waitAfter, needsTerrain, action));
 	}
 
-	private void tick(MinecraftClient client) {
-		if (client.player == null || client.world == null || client.getServer() == null || steps.isEmpty()) {
+	private void tick(Minecraft client) {
+		if (client.player == null || client.level == null || client.getSingleplayerServer() == null || steps.isEmpty()) {
 			return;
 		}
 		ticks++;
@@ -460,7 +461,7 @@ public class HarnessClient implements ClientModInitializer {
 			return;
 		}
 		Step next = steps.peek();
-		if (next.needsTerrain() && !client.worldRenderer.isTerrainRenderComplete() && ticks < nextStepTick + 400) {
+		if (next.needsTerrain() && !client.levelRenderer.hasRenderedAllChunks() && ticks < nextStepTick + 400) {
 			return;
 		}
 		steps.poll();
@@ -474,81 +475,81 @@ public class HarnessClient implements ClientModInitializer {
 	}
 
 	/** Teleports the player (server side) to {@code from}, looking at {@code at}. */
-	private static void tp(MinecraftClient client, Vec3d from, Vec3d at) {
-		float[] angles = angles(from.add(0, client.player.getStandingEyeHeight(), 0), at);
+	private static void tp(Minecraft client, Vec3 from, Vec3 at) {
+		float[] angles = angles(from.add(0, client.player.getEyeHeight(), 0), at);
 		commands(client, String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f %.1f %.1f", from.x, from.y, from.z, angles[0], angles[1]));
 	}
 
 	/** Like tp, but hovering in creative flight so the camera can sit anywhere. */
-	private static void fly(MinecraftClient client, Vec3d from, Vec3d at) {
+	private static void fly(Minecraft client, Vec3 from, Vec3 at) {
 		client.player.getAbilities().flying = true;
-		client.player.sendAbilitiesUpdate();
+		client.player.onUpdateAbilities();
 		tp(client, from, at);
 	}
 
-	private static void look(MinecraftClient client, Vec3d at) {
-		float[] angles = angles(client.player.getEyePos(), at);
-		client.player.setYaw(angles[0]);
-		client.player.setPitch(angles[1]);
+	private static void look(Minecraft client, Vec3 at) {
+		float[] angles = angles(client.player.getEyePosition(), at);
+		client.player.setYRot(angles[0]);
+		client.player.setXRot(angles[1]);
 	}
 
-	private static float[] angles(Vec3d eye, Vec3d at) {
-		Vec3d d = at.subtract(eye);
+	private static float[] angles(Vec3 eye, Vec3 at) {
+		Vec3 d = at.subtract(eye);
 		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
 		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
 		return new float[] {yaw, pitch};
 	}
 
-	private static boolean select(MinecraftClient client) {
+	private static boolean select(Minecraft client) {
 		for (int i = 0; i < 9; i++) {
-			if (client.player.getInventory().getStack(i).isOf(EnderObelisks.OBELISK_ITEM)) {
-				client.player.getInventory().selectedSlot = i;
+			if (client.player.getInventory().getItem(i).is(EnderObelisks.OBELISK_ITEM.get())) {
+				client.player.getInventory().selected = i;
 				return true;
 			}
 		}
 		return false;
 	}
 
-	private static boolean selectItem(MinecraftClient client, Item item) {
+	private static boolean selectItem(Minecraft client, Item item) {
 		for (int i = 0; i < 9; i++) {
-			if (client.player.getInventory().getStack(i).isOf(item)) {
-				client.player.getInventory().selectedSlot = i;
+			if (client.player.getInventory().getItem(i).is(item)) {
+				client.player.getInventory().selected = i;
 				return true;
 			}
 		}
 		return false;
 	}
 
-	private static void rightClick(MinecraftClient client, BlockPos lower) {
-		Vec3d eye = client.player.getEyePos();
-		Vec3d center = Vec3d.ofCenter(lower);
-		Direction side = Direction.getFacing(eye.x - center.x, 0, eye.z - center.z);
-		BlockHitResult hit = new BlockHitResult(center.add(Vec3d.of(side.getVector()).multiply(0.3)), side, lower, false);
-		client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hit);
+	private static void rightClick(Minecraft client, BlockPos lower) {
+		Vec3 eye = client.player.getEyePosition();
+		Vec3 center = Vec3.atCenterOf(lower);
+		Direction side = Direction.getNearest(eye.x - center.x, 0, eye.z - center.z);
+		BlockHitResult hit = new BlockHitResult(center.add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.3)), side, lower, false);
+		client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
 	}
 
-	private static ObeliskScreen screen(MinecraftClient client) {
-		return client.currentScreen instanceof ObeliskScreen screen ? screen : null;
+	private static ObeliskScreen screen(Minecraft client) {
+		return client.screen instanceof ObeliskScreen screen ? screen : null;
 	}
 
 	private static List<String> names(MenuData data) {
 		return data.entries().stream().map(MenuData.Entry::name).toList();
 	}
 
-	private static boolean advancementDone(MinecraftClient client, String name) {
-		UUID me = client.player.getUuid();
+	private static boolean advancementDone(Minecraft client, String name) {
+		UUID me = client.player.getUUID();
 		return onServer(client, s -> {
-			Advancement advancement = s.getAdvancementLoader().get(EnderObelisks.id(name));
-			ServerPlayerEntity player = s.getPlayerManager().getPlayer(me);
-			return advancement != null && player != null && player.getAdvancementTracker().getProgress(advancement).isDone();
+			Advancement advancement = s.getAdvancements().getAdvancement(EnderObelisks.id(name));
+			ServerPlayer player = s.getPlayerList().getPlayer(me);
+			return advancement != null && player != null && player.getAdvancements().getOrStartProgress(advancement).isDone();
 		});
 	}
 
-	private static String nameAt(MinecraftClient client, BlockPos pos) {
-		return onServer(client, s -> ObeliskService.at(s.getOverworld(), pos).map(o -> o.name).orElse("?"));
+	private static String nameAt(Minecraft client, BlockPos pos) {
+		return onServer(client, s -> ObeliskService.at(s.overworld(), pos).map(o -> o.name).orElse("?"));
 	}
 
-	private void selectByName(MinecraftClient client, String name) {
+	private void selectByName(Minecraft client, String name) {
 		ObeliskScreen screen = screen(client);
 		Optional<MenuData.Entry> entry = screen == null ? Optional.empty()
 				: screen.getData().entries().stream().filter(e -> e.name().equals(name)).findFirst();
@@ -558,41 +559,41 @@ public class HarnessClient implements ClientModInitializer {
 		}
 	}
 
-	private static void sendRename(MinecraftClient client, BlockPos source, String name) {
-		PacketByteBuf buf = PacketByteBufs.create();
+	private static void sendRename(Minecraft client, BlockPos source, String name) {
+		FriendlyByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(source);
-		buf.writeString(name);
+		buf.writeUtf(name);
 		ClientPlayNetworking.send(ObeliskPackets.RENAME, buf);
 	}
 
-	private static void sendColor(MinecraftClient client, BlockPos source, int color) {
-		PacketByteBuf buf = PacketByteBufs.create();
+	private static void sendColor(Minecraft client, BlockPos source, int color) {
+		FriendlyByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(source);
 		buf.writeVarInt(color);
 		ClientPlayNetworking.send(ObeliskPackets.SET_COLOR, buf);
 	}
 
-	private static void sendSimple(MinecraftClient client, Identifier channel, BlockPos source) {
-		PacketByteBuf buf = PacketByteBufs.create();
+	private static void sendSimple(Minecraft client, ResourceLocation channel, BlockPos source) {
+		FriendlyByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(source);
 		ClientPlayNetworking.send(channel, buf);
 	}
 
-	private void screenshot(MinecraftClient client, String name) {
-		ScreenshotRecorder.saveScreenshot(client.runDirectory, name + ".png", client.getFramebuffer(), message -> {});
+	private void screenshot(Minecraft client, String name) {
+		Screenshot.grab(client.gameDirectory, name + ".png", client.getMainRenderTarget(), message -> {});
 		LOGGER.info("[harness] screenshot {}.png", name);
 	}
 
-	private void finish(MinecraftClient client) {
+	private void finish(Minecraft client) {
 		boolean pass = !results.isEmpty() && results.stream().allMatch(line -> line.endsWith(": OK"));
 		results.add("RESULT " + (pass ? "PASS" : "FAIL"));
 		try {
-			Files.write(client.runDirectory.toPath().resolve("harness-result.txt"), results, StandardCharsets.UTF_8);
+			Files.write(client.gameDirectory.toPath().resolve("harness-result.txt"), results, StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			LOGGER.error("[harness] could not write the result file", e);
 		}
 		LOGGER.info("[harness] {}", results.get(results.size() - 1));
-		client.scheduleStop();
+		client.stop();
 	}
 
 	private void check(String name, boolean ok) {

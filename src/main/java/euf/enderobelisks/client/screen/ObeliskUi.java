@@ -2,9 +2,9 @@ package euf.enderobelisks.client.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import euf.enderobelisks.EnderObelisks;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * The look shared by the obelisk screens: obsidian panels with violet edges, ender-teal accents, rune buttons, the
@@ -24,24 +24,24 @@ public final class ObeliskUi {
 	public static final int RED = 0xFFF07070;
 	public static final int GREEN = 0xFF8CF08C;
 
-	public static final Identifier ICON_TELEPORT = icon("teleport");
-	public static final Identifier ICON_PUBLIC = icon("public");
-	public static final Identifier ICON_PRIVATE = icon("private");
-	public static final Identifier ICON_FRIENDS = icon("friends");
-	public static final Identifier ICON_UPGRADE = icon("upgrade");
-	public static final Identifier ICON_COOLDOWN = icon("cooldown");
-	public static final Identifier ICON_RANGE = icon("range");
+	public static final ResourceLocation ICON_TELEPORT = icon("teleport");
+	public static final ResourceLocation ICON_PUBLIC = icon("public");
+	public static final ResourceLocation ICON_PRIVATE = icon("private");
+	public static final ResourceLocation ICON_FRIENDS = icon("friends");
+	public static final ResourceLocation ICON_UPGRADE = icon("upgrade");
+	public static final ResourceLocation ICON_COOLDOWN = icon("cooldown");
+	public static final ResourceLocation ICON_RANGE = icon("range");
 
 	private ObeliskUi() {
 	}
 
-	private static Identifier icon(String name) {
-		return new Identifier(EnderObelisks.MOD_ID, "textures/gui/icon/" + name + ".png");
+	private static ResourceLocation icon(String name) {
+		return ResourceLocation.fromNamespaceAndPath(EnderObelisks.MOD_ID, "textures/gui/icon/" + name + ".png");
 	}
 
 	/** Seconds since start, for animations. */
 	public static float time() {
-		return (Util.getMeasuringTimeMs() % 3_600_000L) / 1000f;
+		return (Util.getMillis() % 3_600_000L) / 1000f;
 	}
 
 	/** A cheap stable pseudo-random number in [0, 1) for star and mote positions. */
@@ -59,7 +59,7 @@ public final class ObeliskUi {
 	}
 
 	/** The screen behind the menu: a dark violet haze over the world with motes rising like End particles. */
-	public static void background(DrawContext context, int width, int height) {
+	public static void background(GuiGraphics context, int width, int height) {
 		context.fillGradient(0, 0, width, height, 0xE00B0614, 0xF0050309);
 		float t = time();
 		for (int i = 0; i < 46; i++) {
@@ -74,14 +74,14 @@ public final class ObeliskUi {
 	}
 
 	/** An obsidian slab: dark body, a lighter rim and a black outline. */
-	public static void panel(DrawContext context, int x0, int y0, int x1, int y1) {
+	public static void panel(GuiGraphics context, int x0, int y0, int x1, int y1) {
 		context.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFF030205);
 		context.fillGradient(x0, y0, x1, y1, 0xF4160E22, 0xF40B0712);
 		outline(context, x0, y0, x1, y1, OBSIDIAN_LIGHT);
 	}
 
 	/** The map's frame: a carved obsidian border with a glowing ender gem in every corner. */
-	public static void frame(DrawContext context, int x0, int y0, int x1, int y1) {
+	public static void frame(GuiGraphics context, int x0, int y0, int x1, int y1) {
 		context.fill(x0 - 4, y0 - 4, x1 + 4, y1 + 4, 0xFF030205);
 		context.fill(x0 - 3, y0 - 3, x1 + 3, y1 + 3, OBSIDIAN_LIGHT);
 		context.fill(x0 - 2, y0 - 2, x1 + 2, y1 + 2, OBSIDIAN);
@@ -95,14 +95,14 @@ public final class ObeliskUi {
 		}
 	}
 
-	public static void outline(DrawContext context, int x0, int y0, int x1, int y1, int color) {
+	public static void outline(GuiGraphics context, int x0, int y0, int x1, int y1, int color) {
 		context.fill(x0, y0, x1, y0 + 1, color);
 		context.fill(x0, y1 - 1, x1, y1, color);
 		context.fill(x0, y0, x0 + 1, y1, color);
 		context.fill(x1 - 1, y0, x1, y1, color);
 	}
 
-	public static void diamond(DrawContext context, int x, int y, int r, int color) {
+	public static void diamond(GuiGraphics context, int x, int y, int r, int color) {
 		for (int dy = -r; dy <= r; dy++) {
 			int half = r - Math.abs(dy);
 			context.fill(x - half, y + dy, x + half + 1, y + dy + 1, color);
@@ -110,7 +110,7 @@ public final class ObeliskUi {
 	}
 
 	/** A thin line that fades out at both ends, with a small gem in the middle. */
-	public static void divider(DrawContext context, int x0, int x1, int y) {
+	public static void divider(GuiGraphics context, int x0, int x1, int y) {
 		int mid = (x0 + x1) / 2;
 		int half = (x1 - x0) / 2;
 		int steps = 12;
@@ -129,7 +129,7 @@ public final class ObeliskUi {
 	 * A rune button: obsidian with a violet rim that lights up ender teal under the mouse. The primary one glows and
 	 * pulses while it can be pressed; progress (0..1, or negative for none) fills it like a charging rune.
 	 */
-	public static void button(DrawContext context, int x, int y, int w, int h, boolean active, boolean hovered, boolean primary,
+	public static void button(GuiGraphics context, int x, int y, int w, int h, boolean active, boolean hovered, boolean primary,
 			float progress) {
 		int x1 = x + w;
 		int y1 = y + h;
@@ -155,29 +155,29 @@ public final class ObeliskUi {
 	}
 
 	/** One of the Codex icons (32x32 textures drawn in a 16x16 cell); dimmed when the thing it stands for is unavailable. */
-	public static void icon(DrawContext context, Identifier icon, int x, int y, boolean bright) {
+	public static void icon(GuiGraphics context, ResourceLocation icon, int x, int y, boolean bright) {
 		RenderSystem.enableBlend();
 		if (!bright) {
 			RenderSystem.setShaderColor(0.45f, 0.42f, 0.5f, 1f);
 		}
-		context.drawTexture(icon, x, y, 16, 16, 0, 0, 32, 32, 32, 32);
+		context.blit(icon, x, y, 16, 16, 0, 0, 32, 32, 32, 32);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** An icon at half size, for inline use next to text. */
-	public static void smallIcon(DrawContext context, Identifier icon, int x, int y) {
-		context.getMatrices().push();
-		context.getMatrices().translate(x, y, 0);
-		context.getMatrices().scale(0.5f, 0.5f, 1f);
+	public static void smallIcon(GuiGraphics context, ResourceLocation icon, int x, int y) {
+		context.pose().pushPose();
+		context.pose().translate(x, y, 0);
+		context.pose().scale(0.5f, 0.5f, 1f);
 		icon(context, icon, 0, 0, true);
-		context.getMatrices().pop();
+		context.pose().popPose();
 	}
 
 	/**
 	 * Small pixel shapes drawn from rows of characters: '#' the main colour, '+' a highlight, anything else empty. With
 	 * an outline colour the shape first gets a one-pixel border.
 	 */
-	public static void pixels(DrawContext context, String[] rows, int x, int y, int main, int highlight, int outline) {
+	public static void pixels(GuiGraphics context, String[] rows, int x, int y, int main, int highlight, int outline) {
 		if (outline != 0) {
 			for (int[] d : new int[][] {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
 				pixelPass(context, rows, x + d[0], y + d[1], outline, outline);
@@ -186,7 +186,7 @@ public final class ObeliskUi {
 		pixelPass(context, rows, x, y, main, highlight);
 	}
 
-	private static void pixelPass(DrawContext context, String[] rows, int x, int y, int main, int highlight) {
+	private static void pixelPass(GuiGraphics context, String[] rows, int x, int y, int main, int highlight) {
 		for (int r = 0; r < rows.length; r++) {
 			String row = rows[r];
 			for (int c = 0; c < row.length(); c++) {

@@ -3,7 +3,7 @@
 package journeymap.api.v2.client.display;
 
 import journeymap.api.v2.client.model.MapImage;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 public final class MarkerOverlay extends Overlay {
 	public MarkerOverlay(String modId, BlockPos point, MapImage icon) {

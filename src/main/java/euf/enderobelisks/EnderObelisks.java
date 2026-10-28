@@ -4,87 +4,76 @@ import euf.enderobelisks.block.ObeliskBlock;
 import euf.enderobelisks.block.ObeliskBlockEntity;
 import euf.enderobelisks.block.RuinedObeliskBlock;
 import euf.enderobelisks.net.ObeliskPackets;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
-import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
-import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.piston.PistonBehavior;
-import net.minecraft.block.enums.DoubleBlockHalf;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroups;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import euf.enderobelisks.platform.Network;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.*;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.material.PushReaction;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class EnderObelisks implements ModInitializer {
-	public static final String MOD_ID = "ender_obelisks";
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+@Mod(EnderObelisks.MOD_ID)
+public class EnderObelisks {
+    public static final String MOD_ID = "ender_obelisks";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+    private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MOD_ID);
+    public static final Supplier<ObeliskBlock> OBELISK = BLOCKS.register("obelisk", () -> new ObeliskBlock(
+        BlockBehaviour.Properties.ofFullCopy(Blocks.OBSIDIAN).noOcclusion().pushReaction(PushReaction.BLOCK)
+            .lightLevel(state -> state.getValue(ObeliskBlock.HALF) == DoubleBlockHalf.UPPER ? 10 : 3)));
+    public static final Supplier<Item> OBELISK_ITEM = ITEMS.register("obelisk", () -> new ObeliskItem(OBELISK.get(), new Item.Properties().stacksTo(16)));
+    public static final Supplier<BlockEntityType<ObeliskBlockEntity>> OBELISK_BLOCK_ENTITY = BLOCK_ENTITIES.register("obelisk",
+        () -> BlockEntityType.Builder.of(ObeliskBlockEntity::new, OBELISK.get()).build(null));
+    public static final Supplier<Item> TIME_SHARD = ITEMS.register("time_shard", () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> RETURN_SHARD = ITEMS.register("return_shard", () -> new ReturnShardItem(new Item.Properties().stacksTo(16)));
+    public static final Supplier<RuinedObeliskBlock> RUINED_OBELISK = BLOCKS.register("ruined_obelisk", () -> new RuinedObeliskBlock(
+        BlockBehaviour.Properties.ofFullCopy(Blocks.OBSIDIAN).noOcclusion().pushReaction(PushReaction.BLOCK)));
+    public static final Supplier<Item> RUINED_OBELISK_ITEM = ITEMS.register("ruined_obelisk", () -> new BlockItem(RUINED_OBELISK.get(), new Item.Properties()));
 
-	// Obsidian-hard, explosion proof, pistons can't move it; the upper half (the caged eye) glows brighter
-	public static final Block OBELISK = Registry.register(Registries.BLOCK, id("obelisk"),
-			new ObeliskBlock(FabricBlockSettings.copyOf(Blocks.OBSIDIAN).nonOpaque().pistonBehavior(PistonBehavior.BLOCK)
-					.luminance(state -> state.get(ObeliskBlock.HALF) == DoubleBlockHalf.UPPER ? 10 : 3)));
-	public static final Item OBELISK_ITEM = Registry.register(Registries.ITEM, id("obelisk"),
-			new ObeliskItem(OBELISK, new Item.Settings().maxCount(16)));
-	public static final BlockEntityType<ObeliskBlockEntity> OBELISK_BLOCK_ENTITY = Registry.register(
-			Registries.BLOCK_ENTITY_TYPE, id("obelisk"), FabricBlockEntityTypeBuilder.create(ObeliskBlockEntity::new, OBELISK).build());
-
-	/** Crafted from redstone and emeralds; part of every obelisk, and it restores ruined ones. */
-	public static final Item TIME_SHARD = Registry.register(Registries.ITEM, id("time_shard"), new Item(new Item.Settings()));
-	public static final Item RETURN_SHARD = Registry.register(Registries.ITEM, id("return_shard"),
-			new ReturnShardItem(new Item.Settings().maxCount(16)));
-
-	public static final Block RUINED_OBELISK = Registry.register(Registries.BLOCK, id("ruined_obelisk"),
-			new RuinedObeliskBlock(FabricBlockSettings.copyOf(Blocks.OBSIDIAN).nonOpaque().pistonBehavior(PistonBehavior.BLOCK)));
-	public static final Item RUINED_OBELISK_ITEM = Registry.register(Registries.ITEM, id("ruined_obelisk"),
-			new BlockItem(RUINED_OBELISK, new Item.Settings()));
-
-	public static Identifier id(String path) {
-		return new Identifier(MOD_ID, path);
-	}
-
-	@Override
-	public void onInitialize() {
-		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> {
-			entries.add(OBELISK_ITEM);
-			entries.add(RUINED_OBELISK_ITEM);
-		});
-		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> entries.add(TIME_SHARD));
-		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(RETURN_SHARD));
-		ObeliskConfig.load(FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json"));
-		ObeliskSounds.init();
-		ObeliskCriteria.init();
-		ObeliskPackets.registerServerReceivers();
-		ServerTickEvents.END_SERVER_TICK.register(ObeliskService::tick);
-		ServerLifecycleEvents.SERVER_STOPPED.register(server -> ObeliskService.reset());
-		// Taking damage breaks off a channelling jump
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayerEntity player) {
-				ObeliskService.onDamaged(player);
-			}
-			return true;
-		});
-		// Only the owner (or an operator) may break an obelisk; this also stops instant breaking in creative
-		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
-			if (!state.isOf(OBELISK) || ObeliskBlock.mayBreak(state, player, world, pos)) {
-				return true;
-			}
-			player.sendMessage(Text.translatable("ender_obelisks.message.not_owner"), true);
-			return false;
-		});
-		LOGGER.info("Ender Obelisks loaded");
-	}
+    public static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(MOD_ID, path); }
+    public EnderObelisks(IEventBus bus) {
+        BLOCKS.register(bus); ITEMS.register(bus); BLOCK_ENTITIES.register(bus);
+        ObeliskSounds.REGISTER.register(bus);
+        ObeliskCriteria.REGISTER.register(bus);
+        ObeliskConfig.load(FMLPaths.CONFIGDIR.get().resolve(MOD_ID + ".json"));
+        ObeliskPackets.registerServerReceivers();
+        bus.addListener((RegisterPayloadHandlersEvent event) -> Network.register(event, MOD_ID, "menu", "sync"));
+        bus.addListener((BuildCreativeModeTabContentsEvent event) -> {
+            if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) { event.accept(OBELISK_ITEM.get()); event.accept(RUINED_OBELISK_ITEM.get()); }
+            if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) event.accept(TIME_SHARD.get());
+            if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) event.accept(RETURN_SHARD.get());
+        });
+        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> ObeliskService.tick(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> ObeliskService.reset());
+        NeoForge.EVENT_BUS.addListener((LivingIncomingDamageEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) ObeliskService.onDamaged(player);
+        });
+        NeoForge.EVENT_BUS.addListener((BlockEvent.BreakEvent event) -> {
+            if (event.getState().is(OBELISK.get()) && !ObeliskBlock.mayBreak(event.getState(), event.getPlayer(), event.getLevel(), event.getPos())) {
+                event.setCanceled(true);
+                event.getPlayer().displayClientMessage(Component.translatable("ender_obelisks.message.not_owner"), true);
+            }
+        });
+        LOGGER.info("Ender Obelisks loaded on NeoForge 1.21.1");
+    }
 }
