@@ -38,6 +38,10 @@ import org.jetbrains.annotations.Nullable;
  * in their tooltips.
  */
 public class ObeliskScreen extends Screen {
+    /** Screen.render now draws a blurred background; the custom backdrop is already rendered below. */
+    @Override
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float delta) {}
+
 	private static final int PANEL_W = 172;
 	private static final int PAD = 8;
 	private static final int ROW_H = 12;

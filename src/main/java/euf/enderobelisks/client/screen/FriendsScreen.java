@@ -13,6 +13,10 @@ import net.minecraft.network.chat.Component;
 
 /** The owner's list of players let into a private obelisk: add by name, remove with the cross. Same obsidian look as the menu. */
 public class FriendsScreen extends Screen {
+    /** Screen.render now draws a blurred background; the custom backdrop is already rendered below. */
+    @Override
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float delta) {}
+
 	private static final int W = 220;
 	private static final int ROW = 18;
 	private final ObeliskScreen parent;
